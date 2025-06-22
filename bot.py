@@ -40,7 +40,8 @@ MAIN_FIELDS = [
     "Economics", "Gender", "Psychology", "Accounting", "Managment",
     "PADM", "Sociology", "Journalism", "Hotel & Tourism Management"
 ]
-YEARS = ["1 year", "2 year", "3 year", "Questions"]
+# Remove "Questions" from YEARS
+YEARS = ["1 year", "2 year", "3 year"]
 SEMESTERS = ["1 semester", "2 semester"]
 
 def is_same_message(message, new_text, new_reply_markup):
@@ -268,7 +269,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         document=file_id,
                         protect_content=True
                     )
-            # Only show a big back button after the files
             markup = make_centered_big_buttons([], back_callback=f"semester|{field}|{year}|{semester}")
             await context.bot.send_message(
                 chat_id=query.message.chat_id,
@@ -303,7 +303,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file = course.get("files", [])[fidx]
         file_id = file.get("file_id")
         url = file.get("url")
-        # Always delete the menu message above before sending files
         try:
             await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
         except Exception as e:
@@ -324,7 +323,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=query.message.chat_id,
                 text="Sorry, this file is not available."
             )
-        # Show only a big back button after the file
         markup = make_centered_big_buttons([], back_callback=f"course|{field}|{year}|{semester}|{idx}")
         await context.bot.send_message(
             chat_id=query.message.chat_id,
@@ -333,6 +331,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif data[0] == "back_to_main":
+        # On back, delete the select year message and only show the select field menu
+        try:
+            await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
+        except Exception as e:
+            logger.warning(f"Failed to delete select year message: {e}")
         field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
         markup = make_centered_big_buttons(field_rows)
         await context.bot.send_message(

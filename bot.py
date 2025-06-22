@@ -43,7 +43,7 @@ courses = {
                     "files": [
                         {
                             "title": "Lecture Notes",
-                            "url": "https://t.me/sample_123456/4"
+                            "url": "https://t.me/c/2751438298/2/19"
                         },
                         {"title": "Past Exam", "file_id": "BQACAgUAA2"}
                     ]

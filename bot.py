@@ -16,7 +16,6 @@ import os
 import asyncio
 from telegram.error import Conflict
 
-# --- Dummy web server for deployment platforms requiring open ports ---
 from aiohttp import web
 
 async def handle(request):
@@ -33,10 +32,9 @@ def start_web_server():
     loop.run_until_complete(site.start())
     print(f"Dummy web server running on port {port}")
 
-# ========== BOT CONFIGURATION ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN", "PASTE_YOUR_BOT_TOKEN_HERE")
 CHANNEL_USERNAME = "sample_123456"  # No @
-CHANNEL_ID = -1002659845054  # negative for supergroups
+CHANNEL_ID = -1002659845054
 
 MAIN_FIELDS = [
     "Economics", "Gender", "Psychology", "Accounting", "Managment",
@@ -49,6 +47,15 @@ def is_same_message(message, new_text, new_reply_markup):
     current_text = message.text or ""
     current_markup = message.reply_markup
     return (current_text == (new_text or "")) and (current_markup == new_reply_markup)
+
+def make_centered_big_buttons(rows, back_callback=None):
+    """
+    Make each button fill the row (1 button per row, centered).
+    """
+    keyboard = [[InlineKeyboardButton(text, callback_data=callback)] for text, callback in rows]
+    if back_callback:
+        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=back_callback)])
+    return InlineKeyboardMarkup(keyboard)
 
 courses = {
     "Economics": {
@@ -161,13 +168,6 @@ async def is_user_member(user_id, context):
         logger.warning(f"Failed to check membership: {e}")
         return False
 
-def make_big_buttons(rows, back_callback=None):
-    """Makes each row a single big button. Appends back button if needed."""
-    keyboard = [[InlineKeyboardButton(text, callback_data=callback)] for text, callback in rows]
-    if back_callback:
-        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=back_callback)])
-    return InlineKeyboardMarkup(keyboard)
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     join_button = InlineKeyboardMarkup([
@@ -181,7 +181,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return
     field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
-    await update.message.reply_text("Select your field:", reply_markup=make_big_buttons(field_rows))
+    await update.message.reply_text("Select your field:", reply_markup=make_centered_big_buttons(field_rows))
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -202,7 +202,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             return
         field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
-        markup = make_big_buttons(field_rows)
+        markup = make_centered_big_buttons(field_rows)
         if not is_same_message(query.message, "Select your field:", markup):
             await query.edit_message_text("Select your field:", reply_markup=markup)
         return
@@ -218,7 +218,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data[0] == "field":
         field = data[1]
         year_rows = [(year, f"select_year|{field}|{year}") for year in YEARS]
-        markup = make_big_buttons(year_rows, back_callback="back_to_main")
+        markup = make_centered_big_buttons(year_rows, back_callback="back_to_main")
         text = f"Select year for {field}:"
         if not is_same_message(query.message, text, markup):
             await query.edit_message_text(text, reply_markup=markup)
@@ -226,7 +226,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data[0] == "year":
         year = data[1]
         field_rows = [(field, f"select_year|{field}|{year}") for field in MAIN_FIELDS]
-        markup = make_big_buttons(field_rows, back_callback="back_to_main")
+        markup = make_centered_big_buttons(field_rows, back_callback="back_to_main")
         text = f"Select field for {year}:"
         if not is_same_message(query.message, text, markup):
             await query.edit_message_text(text, reply_markup=markup)
@@ -235,7 +235,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         field, year = data[1], data[2]
         semesters = list(courses.get(field, {}).get(year, {}).keys())
         sem_rows = [(sem, f"semester|{field}|{year}|{sem}") for sem in semesters]
-        markup = make_big_buttons(sem_rows, back_callback=f"field|{field}")
+        markup = make_centered_big_buttons(sem_rows, back_callback=f"field|{field}")
         text = f"Select semester for {field} - {year}:"
         if not is_same_message(query.message, text, markup):
             await query.edit_message_text(text, reply_markup=markup)
@@ -244,7 +244,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         field, year, semester = data[1], data[2], data[3]
         course_list = courses.get(field, {}).get(year, {}).get(semester, [])
         course_rows = [(course["name"], f"course|{field}|{year}|{semester}|{idx}") for idx, course in enumerate(course_list)]
-        markup = make_big_buttons(course_rows, back_callback=f"select_year|{field}|{year}")
+        markup = make_centered_big_buttons(course_rows, back_callback=f"select_year|{field}|{year}")
         text = f"Select course for {field} - {year} - {semester}:"
         if not is_same_message(query.message, text, markup):
             await query.edit_message_text(text, reply_markup=markup)
@@ -257,13 +257,18 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             for f in files:
                 file_id = f.get("file_id")
                 if file_id:
-                    await query.message.reply_document(
-                        file_id,
+                    await context.bot.send_document(
+                        chat_id=query.message.chat_id,
+                        document=file_id,
                         protect_content=True
                     )
             # Only show a big back button after the files
-            markup = make_big_buttons([], back_callback=f"semester|{field}|{year}|{semester}")
-            await query.edit_message_text("Choose what to do next:", reply_markup=markup)
+            markup = make_centered_big_buttons([], back_callback=f"semester|{field}|{year}|{semester}")
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text="Choose what to do next:",
+                reply_markup=markup
+            )
             return
         else:
             if files:
@@ -271,12 +276,12 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     (f.get("title", "File"), f"file|{field}|{year}|{semester}|{idx}|{fidx}")
                     for fidx, f in enumerate(files)
                 ]
-                markup = make_big_buttons(file_rows, back_callback=f"semester|{field}|{year}|{semester}")
+                markup = make_centered_big_buttons(file_rows, back_callback=f"semester|{field}|{year}|{semester}")
                 text = f"Choose a file for {course['name']}:"
                 if not is_same_message(query.message, text, markup):
                     await query.edit_message_text(text, reply_markup=markup)
             else:
-                markup = make_big_buttons([], back_callback=f"semester|{field}|{year}|{semester}")
+                markup = make_centered_big_buttons([], back_callback=f"semester|{field}|{year}|{semester}")
                 text = "No files available for this course."
                 if not is_same_message(query.message, text, markup):
                     await query.edit_message_text(text, reply_markup=markup)
@@ -288,21 +293,32 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file_id = file.get("file_id")
         url = file.get("url")
         if file_id:
-            await query.message.reply_document(
-                file_id,
+            await context.bot.send_document(
+                chat_id=query.message.chat_id,
+                document=file_id,
                 protect_content=True
             )
         elif url:
-            await query.message.reply_text(f"{file.get('title', '')}: {url}")
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text=f"{file.get('title', '')}: {url}"
+            )
         else:
-            await query.message.reply_text("Sorry, this file is not available.")
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text="Sorry, this file is not available."
+            )
         # Show only a big back button after the file
-        markup = make_big_buttons([], back_callback=f"course|{field}|{year}|{semester}|{idx}")
-        await query.edit_message_text("Choose what to do next:", reply_markup=markup)
+        markup = make_centered_big_buttons([], back_callback=f"course|{field}|{year}|{semester}|{idx}")
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="Choose what to do next:",
+            reply_markup=markup
+        )
 
     elif data[0] == "back_to_main":
         field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
-        markup = make_big_buttons(field_rows)
+        markup = make_centered_big_buttons(field_rows)
         if not is_same_message(query.message, "Select your field:", markup):
             await query.edit_message_text("Select your field:", reply_markup=markup)
 

@@ -32,7 +32,6 @@ YEARS = ["1 year", "2 year", "3 year", "Questions"]
 SEMESTERS = ["1 semester", "2 semester"]
 
 # ========== YOUR COURSES DATA ==========
-# Example: Replace file_id values with your actual Telegram file_ids
 courses = {
     "Economics": {
         "1 year": {
@@ -154,7 +153,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not await is_user_member(user_id, context):
         join_button = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")]
+            [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+            [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
         ])
         await update.message.reply_text(
             "Please join our channel to access the bot!", reply_markup=join_button
@@ -172,39 +172,69 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+
+    # Special handler for "I have joined" check
+    if query.data == "check_membership":
+        if not await is_user_member(user_id, context):
+            join_button = InlineKeyboardMarkup([
+                [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+                [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
+            ])
+            await query.edit_message_text(
+                "You are still not a member of the channel. Please join and try again!",
+                reply_markup=join_button
+            )
+            return
+        # If user is a member, show the main menu
+        keyboard = [
+            [InlineKeyboardButton(field, callback_data=f"field|{field}")]
+            for field in MAIN_FIELDS
+        ]
+        await query.edit_message_text(WELCOME_TEXT, reply_markup=InlineKeyboardMarkup(keyboard))
+        return
+
+    # Membership check for all other buttons
     if not await is_user_member(user_id, context):
         join_button = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")]
+            [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+            [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
         ])
         await query.edit_message_text(
             "Please join our channel to access the bot!", reply_markup=join_button
         )
         return
+
     data = query.data.split("|")
     if data[0] == "field":
         field = data[1]
-        keyboard = [[InlineKeyboardButton(year, callback_data=f"select_year|{field}|{year}")] for year in YEARS]
-        # Add back button
+        keyboard = [
+            [InlineKeyboardButton(year, callback_data=f"select_year|{field}|{year}")]
+            for year in YEARS
+        ]
+        # Back button to main menu
         keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_main")])
         await query.edit_message_text(f"Select year for {field}:", reply_markup=InlineKeyboardMarkup(keyboard))
+
     elif data[0] == "year":
         year = data[1]
         keyboard = [
             [InlineKeyboardButton(field, callback_data=f"select_year|{field}|{year}")]
             for field in MAIN_FIELDS
         ]
-        # Add back button
+        # Back button to main menu
         keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_main")])
         await query.edit_message_text(f"Select field for {year}:", reply_markup=InlineKeyboardMarkup(keyboard))
+
     elif data[0] == "select_year":
         field, year = data[1], data[2]
         semesters = list(courses.get(field, {}).get(year, {}).keys())
         keyboard = [
             [InlineKeyboardButton(sem, callback_data=f"semester|{field}|{year}|{sem}")] for sem in semesters
         ]
-        # Add back button
+        # Back button to field menu
         keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"field|{field}")])
         await query.edit_message_text(f"Select semester for {field} - {year}:", reply_markup=InlineKeyboardMarkup(keyboard))
+
     elif data[0] == "semester":
         field, year, semester = data[1], data[2], data[3]
         course_list = courses.get(field, {}).get(year, {}).get(semester, [])
@@ -212,9 +242,10 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton(course["name"], callback_data=f"course|{field}|{year}|{semester}|{idx}")]
             for idx, course in enumerate(course_list)
         ]
-        # Add back button
+        # Back button to year (semester select) menu
         keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"select_year|{field}|{year}")])
         await query.edit_message_text(f"Select course for {field} - {year} - {semester}:", reply_markup=InlineKeyboardMarkup(keyboard))
+
     elif data[0] == "course":
         field, year, semester, idx = data[1], data[2], data[3], int(data[4])
         course = courses.get(field, {}).get(year, {}).get(semester, [])[idx]
@@ -224,17 +255,17 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton(f["title"], callback_data=f"file|{field}|{year}|{semester}|{idx}|{fidx}")]
                 for fidx, f in enumerate(files)
             ]
-            # Add back button
+            # Back button to course list
             keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")])
             await query.edit_message_text(
                 f"Choose a file for {course['name']}:", reply_markup=InlineKeyboardMarkup(keyboard)
             )
         else:
-            # Back to course list
             keyboard = [
                 [InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")]
             ]
             await query.edit_message_text("No files available for this course.", reply_markup=InlineKeyboardMarkup(keyboard))
+
     elif data[0] == "file":
         field, year, semester, idx, fidx = data[1], data[2], data[3], int(data[4]), int(data[5])
         course = courses.get(field, {}).get(year, {}).get(semester, [])[idx]
@@ -245,6 +276,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.message.reply_text("Sorry, this file is not available.")
         await query.delete_message()
+
     elif data[0] == "back_to_main":
         # Show main fields again (first menu)
         keyboard = [

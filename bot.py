@@ -51,10 +51,11 @@ def is_same_message(message, new_text, new_reply_markup):
 def make_centered_big_buttons(rows, back_callback=None):
     """
     Make each button fill the row (1 button per row, centered).
+    Adds a lot of whitespace to button text to visually make it "bigger" (200% effect).
     """
-    keyboard = [[InlineKeyboardButton(text, callback_data=callback)] for text, callback in rows]
+    keyboard = [[InlineKeyboardButton(f"        {text}        ", callback_data=callback)] for text, callback in rows]  # U+2003 EM SPACE for more width
     if back_callback:
-        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=back_callback)])
+        keyboard.append([InlineKeyboardButton("        🔙 Back        ", callback_data=back_callback)])
     return InlineKeyboardMarkup(keyboard)
 
 courses = {
@@ -253,6 +254,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         field, year, semester, idx = data[1], data[2], data[3], int(data[4])
         course = courses.get(field, {}).get(year, {}).get(semester, [])[idx]
         files = course.get("files", [])
+        # Always delete the menu message above before sending files
+        try:
+            await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
+        except Exception as e:
+            logger.warning(f"Failed to delete menu message: {e}")
         if course["name"] == "Calculus for Economics" and len(files) == 2 and all("file_id" in f for f in files):
             for f in files:
                 file_id = f.get("file_id")
@@ -278,13 +284,18 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ]
                 markup = make_centered_big_buttons(file_rows, back_callback=f"semester|{field}|{year}|{semester}")
                 text = f"Choose a file for {course['name']}:"
-                if not is_same_message(query.message, text, markup):
-                    await query.edit_message_text(text, reply_markup=markup)
+                await context.bot.send_message(
+                    chat_id=query.message.chat_id,
+                    text=text,
+                    reply_markup=markup
+                )
             else:
                 markup = make_centered_big_buttons([], back_callback=f"semester|{field}|{year}|{semester}")
-                text = "No files available for this course."
-                if not is_same_message(query.message, text, markup):
-                    await query.edit_message_text(text, reply_markup=markup)
+                await context.bot.send_message(
+                    chat_id=query.message.chat_id,
+                    text="No files available for this course.",
+                    reply_markup=markup
+                )
 
     elif data[0] == "file":
         field, year, semester, idx, fidx = data[1], data[2], data[3], int(data[4]), int(data[5])
@@ -292,6 +303,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file = course.get("files", [])[fidx]
         file_id = file.get("file_id")
         url = file.get("url")
+        # Always delete the menu message above before sending files
+        try:
+            await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
+        except Exception as e:
+            logger.warning(f"Failed to delete menu message: {e}")
         if file_id:
             await context.bot.send_document(
                 chat_id=query.message.chat_id,
@@ -319,8 +335,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data[0] == "back_to_main":
         field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
         markup = make_centered_big_buttons(field_rows)
-        if not is_same_message(query.message, "Select your field:", markup):
-            await query.edit_message_text("Select your field:", reply_markup=markup)
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="Select your field:",
+            reply_markup=markup
+        )
 
 async def doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.message.document:

@@ -160,13 +160,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Please join our channel to access the bot!", reply_markup=join_button
         )
         return
-    # Show main fields and year buttons
+    # Show only main fields, without years
     keyboard = [
         [InlineKeyboardButton(field, callback_data=f"field|{field}")]
         for field in MAIN_FIELDS
     ]
-    # Add years below all fields
-    keyboard += [[InlineKeyboardButton(year, callback_data=f"year|{year}") for year in YEARS]]
     await update.message.reply_text(WELCOME_TEXT, reply_markup=InlineKeyboardMarkup(keyboard))
 
 # ========== BUTTON HANDLER ==========
@@ -186,6 +184,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data[0] == "field":
         field = data[1]
         keyboard = [[InlineKeyboardButton(year, callback_data=f"select_year|{field}|{year}")] for year in YEARS]
+        # Add back button
+        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_main")])
         await query.edit_message_text(f"Select year for {field}:", reply_markup=InlineKeyboardMarkup(keyboard))
     elif data[0] == "year":
         year = data[1]
@@ -193,6 +193,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton(field, callback_data=f"select_year|{field}|{year}")]
             for field in MAIN_FIELDS
         ]
+        # Add back button
+        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_main")])
         await query.edit_message_text(f"Select field for {year}:", reply_markup=InlineKeyboardMarkup(keyboard))
     elif data[0] == "select_year":
         field, year = data[1], data[2]
@@ -200,6 +202,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton(sem, callback_data=f"semester|{field}|{year}|{sem}")] for sem in semesters
         ]
+        # Add back button
+        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"field|{field}")])
         await query.edit_message_text(f"Select semester for {field} - {year}:", reply_markup=InlineKeyboardMarkup(keyboard))
     elif data[0] == "semester":
         field, year, semester = data[1], data[2], data[3]
@@ -208,6 +212,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton(course["name"], callback_data=f"course|{field}|{year}|{semester}|{idx}")]
             for idx, course in enumerate(course_list)
         ]
+        # Add back button
+        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"select_year|{field}|{year}")])
         await query.edit_message_text(f"Select course for {field} - {year} - {semester}:", reply_markup=InlineKeyboardMarkup(keyboard))
     elif data[0] == "course":
         field, year, semester, idx = data[1], data[2], data[3], int(data[4])
@@ -218,11 +224,17 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton(f["title"], callback_data=f"file|{field}|{year}|{semester}|{idx}|{fidx}")]
                 for fidx, f in enumerate(files)
             ]
+            # Add back button
+            keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")])
             await query.edit_message_text(
                 f"Choose a file for {course['name']}:", reply_markup=InlineKeyboardMarkup(keyboard)
             )
         else:
-            await query.edit_message_text("No files available for this course.")
+            # Back to course list
+            keyboard = [
+                [InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")]
+            ]
+            await query.edit_message_text("No files available for this course.", reply_markup=InlineKeyboardMarkup(keyboard))
     elif data[0] == "file":
         field, year, semester, idx, fidx = data[1], data[2], data[3], int(data[4]), int(data[5])
         course = courses.get(field, {}).get(year, {}).get(semester, [])[idx]
@@ -233,6 +245,13 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.message.reply_text("Sorry, this file is not available.")
         await query.delete_message()
+    elif data[0] == "back_to_main":
+        # Show main fields again (first menu)
+        keyboard = [
+            [InlineKeyboardButton(field, callback_data=f"field|{field}")]
+            for field in MAIN_FIELDS
+        ]
+        await query.edit_message_text(WELCOME_TEXT, reply_markup=InlineKeyboardMarkup(keyboard))
 
 # ========== MAIN ==========
 def main():

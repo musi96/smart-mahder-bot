@@ -58,11 +58,9 @@ courses = {
                 {
                     "name": "Calculus for Economics",
                     "files": [
-                        {
-                            "title": "Lecture Notes",
-                            "url": "https://t.me/c/2751438298/2/19"
-                        },
-                        {"title": "Past Exam", "file_id": "BQACAgUAA2"}
+                        # Both lecture notes under one title/button
+                        {"title": "Lecture Notes", "file_id": "AgAD0RgAAqGlyFI"},
+                        {"title": "Lecture Notes", "file_id": "AgAD0hgAAqGlyFI"}
                     ]
                 },
                 {
@@ -272,21 +270,29 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         field, year, semester, idx = data[1], data[2], data[3], int(data[4])
         course = courses.get(field, {}).get(year, {}).get(semester, [])[idx]
         files = course.get("files", [])
-        if files:
-            keyboard = [
-                [InlineKeyboardButton(f["title"], callback_data=f"file|{field}|{year}|{semester}|{idx}|{fidx}")]
-                for fidx, f in enumerate(files)
-            ]
-            # Back button to course list
-            keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")])
-            await query.edit_message_text(
-                f"Choose a file for {course['name']}:", reply_markup=InlineKeyboardMarkup(keyboard)
-            )
+        # If this course is Calculus for Economics and has two lecture notes, send both with one button!
+        if course["name"] == "Calculus for Economics" and len(files) == 2 and all(f["title"] == "Lecture Notes" for f in files):
+            for f in files:
+                file_id = f.get("file_id")
+                if file_id:
+                    await query.message.reply_document(file_id, caption=f.get("title", ""))
+            await query.delete_message()
         else:
-            keyboard = [
-                [InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")]
-            ]
-            await query.edit_message_text("No files available for this course.", reply_markup=InlineKeyboardMarkup(keyboard))
+            if files:
+                keyboard = [
+                    [InlineKeyboardButton(f["title"], callback_data=f"file|{field}|{year}|{semester}|{idx}|{fidx}")]
+                    for fidx, f in enumerate(files)
+                ]
+                # Back button to course list
+                keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")])
+                await query.edit_message_text(
+                    f"Choose a file for {course['name']}:", reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+            else:
+                keyboard = [
+                    [InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")]
+                ]
+                await query.edit_message_text("No files available for this course.", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif data[0] == "file":
         field, year, semester, idx, fidx = data[1], data[2], data[3], int(data[4]), int(data[5])

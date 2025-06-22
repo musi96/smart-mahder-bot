@@ -38,13 +38,6 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "PASTE_YOUR_BOT_TOKEN_HERE")
 CHANNEL_USERNAME = "sample_123456"  # No @
 CHANNEL_ID = -1002659845054  # negative for supergroups
 
-WELCOME_TEXT = (
-    "👋 Welcome to Smart ማህደር!\n"
-    "Your trusted hub for educational materials, notes, and PDFs — all in one smart place.\n\n"
-    "📚 Looking for helpful resources? Just tap the buttons below to explore, download, and learn with ease.\n"
-    "🧠 Stay smart. Stay ahead. With Smart ማህደር."
-)
-
 MAIN_FIELDS = [
     "Economics", "Gender", "Psychology", "Accounting", "Managment",
     "PADM", "Sociology", "Journalism", "Hotel & Tourism Management"
@@ -52,13 +45,11 @@ MAIN_FIELDS = [
 YEARS = ["1 year", "2 year", "3 year", "Questions"]
 SEMESTERS = ["1 semester", "2 semester"]
 
-# ====== UTIL: PREVENT EDIT MESSAGE ERROR ======
 def is_same_message(message, new_text, new_reply_markup):
     current_text = message.text or ""
     current_markup = message.reply_markup
     return (current_text == (new_text or "")) and (current_markup == new_reply_markup)
 
-# ========== YOUR COURSES DATA ==========
 courses = {
     "Economics": {
         "1 year": {
@@ -157,13 +148,11 @@ courses = {
     }
 }
 
-# ========== LOGGING ==========
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# ========== CHANNEL MEMBERSHIP CHECK ==========
 async def is_user_member(user_id, context):
     try:
         member = await context.bot.get_chat_member(CHANNEL_ID, user_id)
@@ -172,7 +161,6 @@ async def is_user_member(user_id, context):
         logger.warning(f"Failed to check membership: {e}")
         return False
 
-# ========== START HANDLER ==========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     join_button = InlineKeyboardMarkup([
@@ -185,15 +173,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Please join our channel to access the bot!", reply_markup=join_button
             )
         return
-    # Show only main fields, without years
     keyboard = [
         [InlineKeyboardButton(field, callback_data=f"field|{field}")]
         for field in MAIN_FIELDS
     ]
-    if not is_same_message(update.message, WELCOME_TEXT, InlineKeyboardMarkup(keyboard)):
-        await update.message.reply_text(WELCOME_TEXT, reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text("Select your field:", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# ========== BUTTON HANDLER ==========
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -204,7 +189,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
     ])
 
-    # Special handler for "I have joined" check
     if query.data == "check_membership":
         if not await is_user_member(user_id, context):
             if not is_same_message(query.message, "You are still not a member of the channel. Please join and try again!", join_button):
@@ -218,11 +202,10 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             for field in MAIN_FIELDS
         ]
         markup = InlineKeyboardMarkup(keyboard)
-        if not is_same_message(query.message, WELCOME_TEXT, markup):
-            await query.edit_message_text(WELCOME_TEXT, reply_markup=markup)
+        if not is_same_message(query.message, "Select your field:", markup):
+            await query.edit_message_text("Select your field:", reply_markup=markup)
         return
 
-    # Membership check for all other buttons
     if not await is_user_member(user_id, context):
         if not is_same_message(query.message, "Please join our channel to access the bot!", join_button):
             await query.edit_message_text(
@@ -292,24 +275,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         file_id,
                         protect_content=True
                     )
-            # Show back button after sending files, and resend file menu at the top for chat history style
+            # Remove buttons by editing the current message to blank with just a back button
             keyboard = [
                 [InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")]
             ]
-            text = "Choose what to do next:"
-            markup = InlineKeyboardMarkup(keyboard)
-            # Send the course menu again, so files always appear above the back button
-            course_list = courses.get(field, {}).get(year, {}).get(semester, [])
-            file_menu_keyboard = [
-                [InlineKeyboardButton(course["name"], callback_data=f"course|{field}|{year}|{semester}|{idx}")]
-                for idx, course in enumerate(course_list)
-            ]
-            file_menu_keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"select_year|{field}|{year}")])
-            file_menu_markup = InlineKeyboardMarkup(file_menu_keyboard)
-            await query.message.reply_text(
-                f"Select course for {field} - {year} - {semester}:",
-                reply_markup=file_menu_markup
-            )
+            await query.edit_message_text("Choose what to do next:", reply_markup=InlineKeyboardMarkup(keyboard))
             return
         else:
             if files:
@@ -346,16 +316,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text(f"{file.get('title', '')}: {url}")
         else:
             await query.message.reply_text("Sorry, this file is not available.")
-        # After sending, show file menu again (so files appear above)
-        files = course.get("files", [])
+        # Remove menu/buttons at the top after sending file, just show a back button
         keyboard = [
-            [InlineKeyboardButton(f.get("title", "File"), callback_data=f"file|{field}|{year}|{semester}|{idx}|{fidx2}")]
-            for fidx2, f in enumerate(files)
+            [InlineKeyboardButton("🔙 Back", callback_data=f"course|{field}|{year}|{semester}|{idx}")]
         ]
-        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"course|{field}|{year}|{semester}|{idx}")])
-        text = f"Choose a file for {course['name']}:"
-        markup = InlineKeyboardMarkup(keyboard)
-        await query.message.reply_text(text, reply_markup=markup)
+        await query.edit_message_text("Choose what to do next:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif data[0] == "back_to_main":
         keyboard = [
@@ -363,10 +328,9 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             for field in MAIN_FIELDS
         ]
         markup = InlineKeyboardMarkup(keyboard)
-        if not is_same_message(query.message, WELCOME_TEXT, markup):
-            await query.edit_message_text(WELCOME_TEXT, reply_markup=markup)
+        if not is_same_message(query.message, "Select your field:", markup):
+            await query.edit_message_text("Select your field:", reply_markup=markup)
 
-# ========== DOCUMENT HANDLER TO PRINT file_id ==========
 async def doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.message.document:
         file_id = update.message.document.file_id
@@ -375,7 +339,6 @@ async def doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Received! file_id printed to console:\n{file_id}"
         )
 
-# ========== MAIN ==========
 def main():
     try:
         start_web_server()

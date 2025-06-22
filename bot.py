@@ -39,7 +39,10 @@ courses = {
                 {
                     "name": "Calculus for Economics",
                     "files": [
-                        {"title": "Lecture Notes", "file_id": "BQACAgUAA1"},
+                        {
+                            "title": "Lecture Notes",
+                            "url": "https://t.me/sample_123456/4"
+                        },
                         {"title": "Past Exam", "file_id": "BQACAgUAA2"}
                     ]
                 },
@@ -271,8 +274,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         course = courses.get(field, {}).get(year, {}).get(semester, [])[idx]
         file = course.get("files", [])[fidx]
         file_id = file.get("file_id")
+        url = file.get("url")
         if file_id:
             await query.message.reply_document(file_id, caption=file.get("title", ""))
+        elif url:
+            await query.message.reply_text(f"{file.get('title', '')}: {url}")
         else:
             await query.message.reply_text("Sorry, this file is not available.")
         await query.delete_message()

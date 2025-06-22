@@ -9,6 +9,8 @@ from telegram.ext import (
     MessageHandler,
     filters
 )
+from flask import Flask
+from threading import Thread
 
 # Bot configuration
 BOT_TOKEN = "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY"
@@ -36,31 +38,76 @@ logging.basicConfig(
     level=logging.INFO
 )
 
+# Flask app setup for Render.com keep-alive
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is active!"
+
+def run_flask():
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
+
+# Start Flask server in a separate thread
+Thread(target=run_flask, daemon=True).start()
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send welcome message with subject buttons if user is member"""
     if await check_membership(update, context):
-        keyboard = [[InlineKeyboardButton(subject, callback_data=f"subject_{subject}")] for subject in SUBJECTS]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        await show_main_menu(update, context)
+
+async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Display main subject menu"""
+    keyboard = [[InlineKeyboardButton(subject, callback_data=f"subject_{subject}")] for subject in SUBJECTS]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    if update.message:
         await update.message.reply_text(WELCOME_MSG, reply_markup=reply_markup)
+    else:  # Callback query context
+        await update.callback_query.edit_message_text(WELCOME_MSG, reply_markup=reply_markup)
 
 async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Check if user has joined channel"""
+    """Check if user has joined channel and show join button if not"""
     try:
         member = await context.bot.get_chat_member(CHANNEL_ID, update.effective_user.id)
         if member.status in ["left", "kicked"]:
-            await update.message.reply_text(
-                f"⚠️ Please join our channel first: {CHANNEL_USERNAME}",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")]
-                ])
-            )
+            # Show join prompt with verification button
+            keyboard = [
+                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+                [InlineKeyboardButton("✅ I've Joined", callback_data="verify_join")]
+            ]
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"⚠️ Please join our channel first: {CHANNEL_USERNAME}",
+                reply_markup=InlineKeyboardMarkup(keyboard)
             return False
         return True
-    except Exception:
+    except Exception as e:
+        logging.error(f"Membership check error: {e}")
         return True  # Skip check if there's an error
+
+async def handle_verification(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Verify channel membership after user clicks 'I've Joined' button"""
+    query = update.callback_query
+    await query.answer()
+    
+    # Verify membership again
+    try:
+        member = await context.bot.get_chat_member(CHANNEL_ID, query.from_user.id)
+        if member.status in ["member", "administrator", "creator"]:
+            await query.edit_message_text("✅ Verification successful! Loading resources...")
+            await show_main_menu(update, context)
+        else:
+            await query.answer("❌ You haven't joined yet. Please join the channel first.", show_alert=True)
+    except Exception as e:
+        logging.error(f"Verification error: {e}")
+        await query.answer("⚠️ Verification failed. Please try again later.", show_alert=True)
 
 async def handle_subject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show year options for selected subject"""
+    if not await check_membership(update, context):
+        return
+        
     query = update.callback_query
     await query.answer()
     subject = query.data.split("_", 1)[1]
@@ -74,6 +121,9 @@ async def handle_subject(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_option(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send files for selected subject and year"""
+    if not await check_membership(update, context):
+        return
+        
     query = update.callback_query
     await query.answer()
     _, subject, option = query.data.split("_", 2)
@@ -85,30 +135,30 @@ async def handle_option(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Send files if they exist
     if os.path.exists(folder_path):
+        files_sent = False
         for file in os.listdir(folder_path):
             file_path = os.path.join(folder_path, file)
             if os.path.isfile(file_path):
+                files_sent = True
                 with open(file_path, 'rb') as f:
                     await context.bot.send_document(
                         chat_id=query.message.chat_id,
                         document=f,
                         caption=f"📁 {subject} - {option}"
                     )
-        # Show main menu again
-        keyboard = [[InlineKeyboardButton(subject, callback_data=f"subject_{subject}")] for subject in SUBJECTS]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await context.bot.send_message(
-            chat_id=query.message.chat_id,
-            text="Select another subject:",
-            reply_markup=reply_markup
-        )
+        
+        if files_sent:
+            # Show main menu again after sending files
+            await show_main_menu(update, context)
+        else:
+            await query.edit_message_text("📭 No files found in this category.")
     else:
         await query.edit_message_text("📭 No files available for this selection.")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle any text message"""
     if await check_membership(update, context):
-        await start(update, context)
+        await show_main_menu(update, context)
 
 def main():
     """Start the bot"""
@@ -116,11 +166,13 @@ def main():
     
     # Add handlers
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(handle_verification, pattern="^verify_join$"))
     application.add_handler(CallbackQueryHandler(handle_subject, pattern="^subject_"))
     application.add_handler(CallbackQueryHandler(handle_option, pattern="^option_"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     # Start bot
+    logging.info("Bot is running...")
     application.run_polling()
 
 if __name__ == "__main__":

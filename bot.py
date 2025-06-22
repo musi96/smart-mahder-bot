@@ -1,201 +1,246 @@
-import os
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 from telegram.ext import (
-    Application,
+    ApplicationBuilder,
     CommandHandler,
     CallbackQueryHandler,
     ContextTypes,
-    MessageHandler,
-    filters
 )
-from flask import Flask
-from threading import Thread
+import os
 
-# Bot configuration with your specific credentials
-BOT_TOKEN = "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY"
+# ========== BOT CONFIGURATION ==========
+BOT_TOKEN = os.getenv("BOT_TOKEN", "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY")
 CHANNEL_USERNAME = "@sample_123456"
-CHANNEL_ID = -1002659845054  # Converted to negative format
+CHANNEL_ID = -1002659845054  # negative for supergroups
 
-# Define subjects and options
-SUBJECTS = [
-    "Economics", "Gender", "Psychology", "Accounting", 
-    "Managment", "PADM", "Sociology", "Journalism", 
-    "Hotel & Tourism Management"
+WELCOME_TEXT = (
+    "👋 Welcome to Smart ማህደር!\n"
+    "Your trusted hub for educational materials, notes, and PDFs — all in one smart place.\n\n"
+    "📚 Looking for helpful resources? Just tap the buttons below to explore, download, and learn with ease.\n"
+    "🧠 Stay smart. Stay ahead. With Smart ማህደር."
+)
+
+MAIN_FIELDS = [
+    "Economics", "Gender", "Psychology", "Accounting", "Managment",
+    "PADM", "Sociology", "Journalism", "Hotel & Tourism Management"
 ]
-OPTIONS = ["1 year", "2 year", "3 year", "Questions"]
+YEARS = ["1 year", "2 year", "3 year", "Questions"]
+SEMESTERS = ["1 semester", "2 semester"]
 
-# Welcome message
-WELCOME_MSG = """👋 Welcome to Smart ማህደር!
-Your trusted hub for educational materials, notes, and PDFs — all in one smart place.
+# ========== YOUR COURSES DATA ==========
+# Example: Replace file_id values with your actual Telegram file_ids
+courses = {
+    "Economics": {
+        "1 year": {
+            "1 semester": [
+                {
+                    "name": "Calculus for Economics",
+                    "files": [
+                        {"title": "Lecture Notes", "file_id": "BQACAgUAA1"},
+                        {"title": "Past Exam", "file_id": "BQACAgUAA2"}
+                    ]
+                },
+                {
+                    "name": "Accounting 1",
+                    "files": [
+                        {"title": "Textbook", "file_id": "BQACAgUAA3"}
+                    ]
+                },
+                {
+                    "name": "Macro Economics 1",
+                    "files": [
+                        {"title": "Slides", "file_id": "BQACAgUAA4"}
+                    ]
+                },
+                {
+                    "name": "Micro Economics 1",
+                    "files": []
+                },
+                {
+                    "name": "Introduction to Statistics",
+                    "files": []
+                },
+                {
+                    "name": "Basic Computer Skill of MS Applications",
+                    "files": []
+                }
+            ],
+            "2 semester": [
+                {
+                    "name": "Linear Algebra for Economics",
+                    "files": []
+                },
+                {
+                    "name": "Accounting 2",
+                    "files": []
+                },
+                {
+                    "name": "Macro Economics 2",
+                    "files": []
+                },
+                {
+                    "name": "Micro Economics 2",
+                    "files": []
+                },
+                {
+                    "name": "Statistics for Economics",
+                    "files": []
+                },
+                {
+                    "name": "Basic Writing Skill",
+                    "files": []
+                }
+            ]
+        },
+        "2 year": {
+            "1 semester": [
+                {
+                    "name": "Mathematical Economics",
+                    "files": []
+                },
+                {
+                    "name": "Econometrics 1",
+                    "files": []
+                },
+                {
+                    "name": "Financial Economics 1",
+                    "files": []
+                },
+                {
+                    "name": "Introduction to Management",
+                    "files": []
+                },
+                {
+                    "name": "Labor Economics",
+                    "files": []
+                },
+                {
+                    "name": "Developmental Economics 1",
+                    "files": []
+                },
+                {
+                    "name": "International Economics 1",
+                    "files": []
+                }
+            ]
+            # Add "2 semester" as needed
+        }
+        # Add "3 year" and "Questions" as needed
+    }
+    # Add more fields as needed...
+}
 
-📚 Looking for helpful resources? Just tap the buttons below to explore, download, and learn with ease.
-🧠 Stay smart. Stay ahead. With Smart ማህደር."""
-
-# Set up logging
+# ========== LOGGING ==========
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# Flask app setup for Render.com keep-alive
-app = Flask(__name__)
+# ========== CHANNEL MEMBERSHIP CHECK ==========
+async def is_user_member(user_id, context):
+    try:
+        member = await context.bot.get_chat_member(CHANNEL_ID, user_id)
+        return member.status in ["member", "administrator", "creator"]
+    except Exception as e:
+        logger.warning(f"Failed to check membership: {e}")
+        return False
 
-@app.route('/')
-def home():
-    return "Bot is active!"
-
-def run_flask():
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
-
-# Start Flask server in a separate thread
-Thread(target=run_flask, daemon=True).start()
-
+# ========== START HANDLER ==========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send welcome message with subject buttons if user is member"""
-    if await check_membership(update, context):
-        await show_main_menu(update, context)
-
-async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Display main subject menu"""
-    keyboard = [[InlineKeyboardButton(subject, callback_data=f"subject_{subject}")] for subject in SUBJECTS]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    if update.message:
-        await update.message.reply_text(WELCOME_MSG, reply_markup=reply_markup)
-    else:  # Callback query context
-        query = update.callback_query
-        await query.answer()
-        await query.edit_message_text(WELCOME_MSG, reply_markup=reply_markup)
-
-async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Check if user has joined channel and show join button if not"""
-    try:
-        # Check membership only in private chats
-        if update.effective_chat.type == "private":
-            member = await context.bot.get_chat_member(CHANNEL_ID, update.effective_user.id)
-            if member.status in ["left", "kicked"]:
-                # Show join prompt with verification button
-                keyboard = [
-                    [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
-                    [InlineKeyboardButton("✅ I've Joined", callback_data="verify_join")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
-                if update.message:
-                    await update.message.reply_text(
-                        f"⚠️ Please join our channel first: {CHANNEL_USERNAME}",
-                        reply_markup=reply_markup
-                    )
-                else:
-                    query = update.callback_query
-                    await query.answer()
-                    await query.edit_message_text(
-                        f"⚠️ Please join our channel first: {CHANNEL_USERNAME}",
-                        reply_markup=reply_markup
-                    )
-                return False
-        return True
-    except Exception as e:
-        logger.error(f"Membership check error: {e}")
-        return True  # Skip check if there's an error
-
-async def handle_verification(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Verify channel membership after user clicks 'I've Joined' button"""
-    query = update.callback_query
-    await query.answer()
-    
-    # Verify membership again
-    try:
-        member = await context.bot.get_chat_member(CHANNEL_ID, query.from_user.id)
-        if member.status in ["member", "administrator", "creator"]:
-            await query.edit_message_text("✅ Verification successful! Loading resources...")
-            await show_main_menu(update, context)
-        else:
-            await query.answer("❌ You haven't joined yet. Please join the channel first.", show_alert=True)
-    except Exception as e:
-        logger.error(f"Verification error: {e}")
-        await query.answer("⚠️ Verification failed. Please try again later.", show_alert=True)
-
-async def handle_subject(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show year options for selected subject"""
-    if not await check_membership(update, context):
+    user_id = update.effective_user.id
+    if not await is_user_member(user_id, context):
+        join_button = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")]
+        ])
+        await update.message.reply_text(
+            "Please join our channel to access the bot!", reply_markup=join_button
+        )
         return
-        
+    # Show main fields and year buttons
+    keyboard = [
+        [InlineKeyboardButton(field, callback_data=f"field|{field}")]
+        for field in MAIN_FIELDS
+    ]
+    # Add years below all fields
+    keyboard += [[InlineKeyboardButton(year, callback_data=f"year|{year}") for year in YEARS]]
+    await update.message.reply_text(WELCOME_TEXT, reply_markup=InlineKeyboardMarkup(keyboard))
+
+# ========== BUTTON HANDLER ==========
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    subject = query.data.split("_", 1)[1]
-    
-    keyboard = [[InlineKeyboardButton(option, callback_data=f"option_{subject}_{option}")] for option in OPTIONS]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(
-        text=f"📚 {subject} - Select Year:",
-        reply_markup=reply_markup
-    )
-
-async def handle_option(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send files for selected subject and year"""
-    if not await check_membership(update, context):
+    user_id = query.from_user.id
+    if not await is_user_member(user_id, context):
+        join_button = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")]
+        ])
+        await query.edit_message_text(
+            "Please join our channel to access the bot!", reply_markup=join_button
+        )
         return
-        
-    query = update.callback_query
-    await query.answer()
-    data_parts = query.data.split("_", 2)
-    subject = data_parts[1]
-    option = data_parts[2]
-    
-    # Create folder path
-    folder_name = subject.replace(" & ", "_").replace(" ", "_")
-    option_folder = option.replace(" ", "_")
-    folder_path = f"files/{folder_name}/{option_folder}"
-    
-    # Send files if they exist
-    try:
-        if os.path.exists(folder_path):
-            files_sent = False
-            for file in os.listdir(folder_path):
-                file_path = os.path.join(folder_path, file)
-                if os.path.isfile(file_path):
-                    files_sent = True
-                    with open(file_path, 'rb') as f:
-                        await context.bot.send_document(
-                            chat_id=query.message.chat_id,
-                            document=f,
-                            caption=f"📁 {subject} - {option}"
-                        )
-            
-            if files_sent:
-                # Show main menu again after sending files
-                await show_main_menu(update, context)
-            else:
-                await query.edit_message_text("📭 No files found in this category.")
+    data = query.data.split("|")
+    if data[0] == "field":
+        field = data[1]
+        keyboard = [[InlineKeyboardButton(year, callback_data=f"select_year|{field}|{year}")] for year in YEARS]
+        await query.edit_message_text(f"Select year for {field}:", reply_markup=InlineKeyboardMarkup(keyboard))
+    elif data[0] == "year":
+        year = data[1]
+        keyboard = [
+            [InlineKeyboardButton(field, callback_data=f"select_year|{field}|{year}")]
+            for field in MAIN_FIELDS
+        ]
+        await query.edit_message_text(f"Select field for {year}:", reply_markup=InlineKeyboardMarkup(keyboard))
+    elif data[0] == "select_year":
+        field, year = data[1], data[2]
+        semesters = list(courses.get(field, {}).get(year, {}).keys())
+        keyboard = [
+            [InlineKeyboardButton(sem, callback_data=f"semester|{field}|{year}|{sem}")] for sem in semesters
+        ]
+        await query.edit_message_text(f"Select semester for {field} - {year}:", reply_markup=InlineKeyboardMarkup(keyboard))
+    elif data[0] == "semester":
+        field, year, semester = data[1], data[2], data[3]
+        course_list = courses.get(field, {}).get(year, {}).get(semester, [])
+        keyboard = [
+            [InlineKeyboardButton(course["name"], callback_data=f"course|{field}|{year}|{semester}|{idx}")]
+            for idx, course in enumerate(course_list)
+        ]
+        await query.edit_message_text(f"Select course for {field} - {year} - {semester}:", reply_markup=InlineKeyboardMarkup(keyboard))
+    elif data[0] == "course":
+        field, year, semester, idx = data[1], data[2], data[3], int(data[4])
+        course = courses.get(field, {}).get(year, {}).get(semester, [])[idx]
+        files = course.get("files", [])
+        if files:
+            keyboard = [
+                [InlineKeyboardButton(f["title"], callback_data=f"file|{field}|{year}|{semester}|{idx}|{fidx}")]
+                for fidx, f in enumerate(files)
+            ]
+            await query.edit_message_text(
+                f"Choose a file for {course['name']}:", reply_markup=InlineKeyboardMarkup(keyboard)
+            )
         else:
-            await query.edit_message_text("📭 No files available for this selection.")
-    except Exception as e:
-        logger.error(f"File sending error: {e}")
-        await query.edit_message_text("⚠️ Error loading files. Please try again later.")
+            await query.edit_message_text("No files available for this course.")
+    elif data[0] == "file":
+        field, year, semester, idx, fidx = data[1], data[2], data[3], int(data[4]), int(data[5])
+        course = courses.get(field, {}).get(year, {}).get(semester, [])[idx]
+        file = course.get("files", [])[fidx]
+        file_id = file.get("file_id")
+        if file_id:
+            await query.message.reply_document(file_id, caption=file.get("title", ""))
+        else:
+            await query.message.reply_text("Sorry, this file is not available.")
+        await query.delete_message()
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle any text message"""
-    if await check_membership(update, context):
-        await show_main_menu(update, context)
-
+# ========== MAIN ==========
 def main():
-    """Start the bot"""
-    application = Application.builder().token(BOT_TOKEN).build()
-    
-    # Add handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(handle_verification, pattern="^verify_join$"))
-    application.add_handler(CallbackQueryHandler(handle_subject, pattern="^subject_"))
-    application.add_handler(CallbackQueryHandler(handle_option, pattern="^option_"))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    # Start bot
-    logger.info("Bot is running with your credentials...")
-    application.run_polling()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(button))
+    print("Bot is running...")
+    app.run_polling()
 
 if __name__ == "__main__":
     main()

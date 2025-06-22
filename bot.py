@@ -14,6 +14,23 @@ import os
 import asyncio
 from telegram.error import Conflict
 
+# --- Dummy web server for deployment platforms requiring open ports ---
+from aiohttp import web
+
+async def handle(request):
+    return web.Response(text="Bot is running!")
+
+def start_web_server():
+    port = int(os.environ.get("PORT", 8080))
+    app = web.Application()
+    app.router.add_get("/", handle)
+    runner = web.AppRunner(app)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(runner.setup())
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    loop.run_until_complete(site.start())
+    print(f"Dummy web server running on port {port}")
+
 # ========== BOT CONFIGURATION ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN", "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY")
 CHANNEL_USERNAME = "sample_123456"  # No @
@@ -296,6 +313,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ========== MAIN ==========
 def main():
     try:
+        # Start dummy web server in background
+        start_web_server()
         app = ApplicationBuilder().token(BOT_TOKEN).build()
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CallbackQueryHandler(button))

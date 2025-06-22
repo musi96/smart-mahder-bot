@@ -52,6 +52,12 @@ MAIN_FIELDS = [
 YEARS = ["1 year", "2 year", "3 year", "Questions"]
 SEMESTERS = ["1 semester", "2 semester"]
 
+# ====== UTIL: PREVENT EDIT MESSAGE ERROR ======
+def is_same_message(message, new_text, new_reply_markup):
+    current_text = message.text or ""
+    current_markup = message.reply_markup
+    return (current_text == (new_text or "")) and (current_markup == new_reply_markup)
+
 # ========== YOUR COURSES DATA ==========
 courses = {
     "Economics": {
@@ -60,9 +66,9 @@ courses = {
                 {
                     "name": "Calculus for Economics",
                     "files": [
-                        # Updated with new file_ids as requested
-                        {"title": "Lecture Notes", "file_id": "BQACAgQAAyEFAASeigO-AAMEaFh1xjxYUA9dOnrzT9gLMs7U_U8AAtEYAAKhpchSpSkYPNh2RDs2BA"},
-                        {"title": "Lecture Notes", "file_id": "BQACAgQAAyEFAASeigO-AAMFaFh1xr6Nhb5I8lvjtmVVwfrrx1oAAtIYAAKhpchSu9ofq12HUWM2BA"}
+                        # No "Lecture Notes" text, just file_id
+                        {"file_id": "BQACAgQAAyEFAASeigO-AAMEaFh1xjxYUA9dOnrzT9gLMs7U_U8AAtEYAAKhpchSpSkYPNh2RDs2BA"},
+                        {"file_id": "BQACAgQAAyEFAASeigO-AAMFaFh1xr6Nhb5I8lvjtmVVwfrrx1oAAtIYAAKhpchSu9ofq12HUWM2BA"}
                     ]
                 },
                 {
@@ -173,21 +179,23 @@ async def is_user_member(user_id, context):
 # ========== START HANDLER ==========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    join_button = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
+        [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
+    ])
     if not await is_user_member(user_id, context):
-        join_button = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
-            [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
-        ])
-        await update.message.reply_text(
-            "Please join our channel to access the bot!", reply_markup=join_button
-        )
+        if not is_same_message(update.message, "Please join our channel to access the bot!", join_button):
+            await update.message.reply_text(
+                "Please join our channel to access the bot!", reply_markup=join_button
+            )
         return
     # Show only main fields, without years
     keyboard = [
         [InlineKeyboardButton(field, callback_data=f"field|{field}")]
         for field in MAIN_FIELDS
     ]
-    await update.message.reply_text(WELCOME_TEXT, reply_markup=InlineKeyboardMarkup(keyboard))
+    if not is_same_message(update.message, WELCOME_TEXT, InlineKeyboardMarkup(keyboard)):
+        await update.message.reply_text(WELCOME_TEXT, reply_markup=InlineKeyboardMarkup(keyboard))
 
 # ========== BUTTON HANDLER ==========
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -195,35 +203,36 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
 
+    join_button = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
+        [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
+    ])
+
     # Special handler for "I have joined" check
     if query.data == "check_membership":
         if not await is_user_member(user_id, context):
-            join_button = InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
-                [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
-            ])
-            await query.edit_message_text(
-                "You are still not a member of the channel. Please join and try again!",
-                reply_markup=join_button
-            )
+            if not is_same_message(query.message, "You are still not a member of the channel. Please join and try again!", join_button):
+                await query.edit_message_text(
+                    "You are still not a member of the channel. Please join and try again!",
+                    reply_markup=join_button
+                )
             return
         # If user is a member, show the main menu
         keyboard = [
             [InlineKeyboardButton(field, callback_data=f"field|{field}")]
             for field in MAIN_FIELDS
         ]
-        await query.edit_message_text(WELCOME_TEXT, reply_markup=InlineKeyboardMarkup(keyboard))
+        markup = InlineKeyboardMarkup(keyboard)
+        if not is_same_message(query.message, WELCOME_TEXT, markup):
+            await query.edit_message_text(WELCOME_TEXT, reply_markup=markup)
         return
 
     # Membership check for all other buttons
     if not await is_user_member(user_id, context):
-        join_button = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
-            [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
-        ])
-        await query.edit_message_text(
-            "Please join our channel to access the bot!", reply_markup=join_button
-        )
+        if not is_same_message(query.message, "Please join our channel to access the bot!", join_button):
+            await query.edit_message_text(
+                "Please join our channel to access the bot!", reply_markup=join_button
+            )
         return
 
     data = query.data.split("|")
@@ -235,7 +244,10 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         # Back button to main menu
         keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_main")])
-        await query.edit_message_text(f"Select year for {field}:", reply_markup=InlineKeyboardMarkup(keyboard))
+        text = f"Select year for {field}:"
+        markup = InlineKeyboardMarkup(keyboard)
+        if not is_same_message(query.message, text, markup):
+            await query.edit_message_text(text, reply_markup=markup)
 
     elif data[0] == "year":
         year = data[1]
@@ -245,7 +257,10 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         # Back button to main menu
         keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_main")])
-        await query.edit_message_text(f"Select field for {year}:", reply_markup=InlineKeyboardMarkup(keyboard))
+        text = f"Select field for {year}:"
+        markup = InlineKeyboardMarkup(keyboard)
+        if not is_same_message(query.message, text, markup):
+            await query.edit_message_text(text, reply_markup=markup)
 
     elif data[0] == "select_year":
         field, year = data[1], data[2]
@@ -255,7 +270,10 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         # Back button to field menu
         keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"field|{field}")])
-        await query.edit_message_text(f"Select semester for {field} - {year}:", reply_markup=InlineKeyboardMarkup(keyboard))
+        text = f"Select semester for {field} - {year}:"
+        markup = InlineKeyboardMarkup(keyboard)
+        if not is_same_message(query.message, text, markup):
+            await query.edit_message_text(text, reply_markup=markup)
 
     elif data[0] == "semester":
         field, year, semester = data[1], data[2], data[3]
@@ -266,35 +284,48 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         # Back button to year (semester select) menu
         keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"select_year|{field}|{year}")])
-        await query.edit_message_text(f"Select course for {field} - {year} - {semester}:", reply_markup=InlineKeyboardMarkup(keyboard))
+        text = f"Select course for {field} - {year} - {semester}:"
+        markup = InlineKeyboardMarkup(keyboard)
+        if not is_same_message(query.message, text, markup):
+            await query.edit_message_text(text, reply_markup=markup)
 
     elif data[0] == "course":
         field, year, semester, idx = data[1], data[2], data[3], int(data[4])
         course = courses.get(field, {}).get(year, {}).get(semester, [])[idx]
         files = course.get("files", [])
-        # If this course is Calculus for Economics and has two lecture notes, send both with one button!
-        if course["name"] == "Calculus for Economics" and len(files) == 2 and all(f["title"] == "Lecture Notes" for f in files):
+        # If this course is Calculus for Economics and has two files, send both with one button!
+        if course["name"] == "Calculus for Economics" and len(files) == 2 and all("file_id" in f for f in files):
             for f in files:
                 file_id = f.get("file_id")
                 if file_id:
-                    await query.message.reply_document(file_id, caption=f.get("title", ""))
-            await query.delete_message()
+                    await query.message.reply_document(file_id)
+            # Show back button after sending files
+            keyboard = [
+                [InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")]
+            ]
+            text = "Choose what to do next:"
+            markup = InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(text, reply_markup=markup)
         else:
             if files:
                 keyboard = [
-                    [InlineKeyboardButton(f["title"], callback_data=f"file|{field}|{year}|{semester}|{idx}|{fidx}")]
+                    [InlineKeyboardButton(f.get("title", "File"), callback_data=f"file|{field}|{year}|{semester}|{idx}|{fidx}")]
                     for fidx, f in enumerate(files)
                 ]
                 # Back button to course list
                 keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")])
-                await query.edit_message_text(
-                    f"Choose a file for {course['name']}:", reply_markup=InlineKeyboardMarkup(keyboard)
-                )
+                text = f"Choose a file for {course['name']}:"
+                markup = InlineKeyboardMarkup(keyboard)
+                if not is_same_message(query.message, text, markup):
+                    await query.edit_message_text(text, reply_markup=markup)
             else:
                 keyboard = [
                     [InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")]
                 ]
-                await query.edit_message_text("No files available for this course.", reply_markup=InlineKeyboardMarkup(keyboard))
+                text = "No files available for this course."
+                markup = InlineKeyboardMarkup(keyboard)
+                if not is_same_message(query.message, text, markup):
+                    await query.edit_message_text(text, reply_markup=markup)
 
     elif data[0] == "file":
         field, year, semester, idx, fidx = data[1], data[2], data[3], int(data[4]), int(data[5])
@@ -303,12 +334,18 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file_id = file.get("file_id")
         url = file.get("url")
         if file_id:
-            await query.message.reply_document(file_id, caption=file.get("title", ""))
+            await query.message.reply_document(file_id)
         elif url:
             await query.message.reply_text(f"{file.get('title', '')}: {url}")
         else:
             await query.message.reply_text("Sorry, this file is not available.")
-        await query.delete_message()
+        # After sending, show back button
+        keyboard = [
+            [InlineKeyboardButton("🔙 Back", callback_data=f"course|{field}|{year}|{semester}|{idx}")]
+        ]
+        text = "Choose what to do next:"
+        markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(text, reply_markup=markup)
 
     elif data[0] == "back_to_main":
         # Show main fields again (first menu)
@@ -316,7 +353,9 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton(field, callback_data=f"field|{field}")]
             for field in MAIN_FIELDS
         ]
-        await query.edit_message_text(WELCOME_TEXT, reply_markup=InlineKeyboardMarkup(keyboard))
+        markup = InlineKeyboardMarkup(keyboard)
+        if not is_same_message(query.message, WELCOME_TEXT, markup):
+            await query.edit_message_text(WELCOME_TEXT, reply_markup=markup)
 
 # ========== DOCUMENT HANDLER TO PRINT file_id ==========
 async def doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):

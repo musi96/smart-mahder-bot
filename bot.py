@@ -12,10 +12,10 @@ from telegram.ext import (
 from flask import Flask
 from threading import Thread
 
-# Bot configuration - REPLACE WITH YOUR VALUES
-BOT_TOKEN = "YOUR_BOT_TOKEN"
-CHANNEL_USERNAME = "@your_channel_username"  # Must start with @
-CHANNEL_ID = -1000000000000  # Replace with your negative channel ID
+# Bot configuration with your specific credentials
+BOT_TOKEN = "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY"
+CHANNEL_USERNAME = "@sample_123456"
+CHANNEL_ID = -1002659845054  # Converted to negative format
 
 # Define subjects and options
 SUBJECTS = [
@@ -73,7 +73,7 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Check if user has joined channel and show join button if not"""
     try:
-        # Skip check if in private chat
+        # Check membership only in private chats
         if update.effective_chat.type == "private":
             member = await context.bot.get_chat_member(CHANNEL_ID, update.effective_user.id)
             if member.status in ["left", "kicked"]:
@@ -194,7 +194,7 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     # Start bot
-    logger.info("Bot is running...")
+    logger.info("Bot is running with your credentials...")
     application.run_polling()
 
 if __name__ == "__main__":

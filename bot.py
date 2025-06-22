@@ -11,6 +11,8 @@ from telegram.ext import (
     ContextTypes,
 )
 import os
+import asyncio
+from telegram.error import Conflict
 
 # ========== BOT CONFIGURATION ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN", "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY")
@@ -293,11 +295,16 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ========== MAIN ==========
 def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button))
-    print("Bot is running...")
-    app.run_polling()
+    try:
+        app = ApplicationBuilder().token(BOT_TOKEN).build()
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(CallbackQueryHandler(button))
+        logger.info("Bot is running...")
+        app.run_polling()
+    except Conflict as e:
+        logger.error("Another instance of the bot is already running. Please stop it before starting a new one.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred: {e}")
 
 if __name__ == "__main__":
     main()

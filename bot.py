@@ -1,6 +1,6 @@
 import os
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -9,13 +9,14 @@ from telegram.ext import (
     MessageHandler,
     filters
 )
-from flask import Flask
+from telegram.request import HTTPXRequest
+from flask import Flask, request
 from threading import Thread
 
 # Bot configuration
-BOT_TOKEN = "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY"
+BOT_TOKEN = os.environ.get('BOT_TOKEN', 'YOUR_DEFAULT_BOT_TOKEN')
 CHANNEL_USERNAME = "@sample_123456"
-CHANNEL_ID = -1002659845054  # Channel ID must be negative
+CHANNEL_ID = -1002659845054  # Replace with your channel ID
 
 # Define subjects and options
 SUBJECTS = [
@@ -37,20 +38,13 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+logger = logging.getLogger(__name__)
 
-# Flask app setup for Render.com keep-alive
+# Flask app setup
 app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return "Bot is active!"
-
-def run_flask():
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
-
-# Start Flask server in a separate thread
-Thread(target=run_flask, daemon=True).start()
+# Initialize application globally
+application = None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send welcome message with subject buttons if user is member"""
@@ -61,29 +55,41 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Display main subject menu"""
     keyboard = [[InlineKeyboardButton(subject, callback_data=f"subject_{subject}")] for subject in SUBJECTS]
     reply_markup = InlineKeyboardMarkup(keyboard)
+    
     if update.message:
         await update.message.reply_text(WELCOME_MSG, reply_markup=reply_markup)
     else:  # Callback query context
-        await update.callback_query.edit_message_text(WELCOME_MSG, reply_markup=reply_markup)
+        query = update.callback_query
+        await query.answer()
+        await query.edit_message_text(WELCOME_MSG, reply_markup=reply_markup)
 
 async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Check if user has joined channel and show join button if not"""
     try:
-        member = await context.bot.get_chat_member(CHANNEL_ID, update.effective_user.id)
-        if member.status in ["left", "kicked"]:
-            # Show join prompt with verification button
-            keyboard = [
-                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
-                [InlineKeyboardButton("✅ I've Joined", callback_data="verify_join")]
-            ]
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=f"⚠️ Please join our channel first: {CHANNEL_USERNAME}",
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            return False
+        # Skip check if in private chat
+        if update.effective_chat.type == "private":
+            member = await context.bot.get_chat_member(CHANNEL_ID, update.effective_user.id)
+            if member.status in ["left", "kicked"]:
+                # Show join prompt with verification button
+                keyboard = [
+                    [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+                    [InlineKeyboardButton("✅ I've Joined", callback_data="verify_join")]
+                ]
+                if update.message:
+                    await update.message.reply_text(
+                        f"⚠️ Please join our channel first: {CHANNEL_USERNAME}",
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                else:
+                    query = update.callback_query
+                    await query.answer()
+                    await query.edit_message_text(
+                        f"⚠️ Please join our channel first: {CHANNEL_USERNAME}",
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                return False
         return True
     except Exception as e:
-        logging.error(f"Membership check error: {e}")
+        logger.error(f"Membership check error: {e}")
         return True  # Skip check if there's an error
 
 async def handle_verification(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -100,7 +106,7 @@ async def handle_verification(update: Update, context: ContextTypes.DEFAULT_TYPE
         else:
             await query.answer("❌ You haven't joined yet. Please join the channel first.", show_alert=True)
     except Exception as e:
-        logging.error(f"Verification error: {e}")
+        logger.error(f"Verification error: {e}")
         await query.answer("⚠️ Verification failed. Please try again later.", show_alert=True)
 
 async def handle_subject(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -126,7 +132,9 @@ async def handle_option(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     query = update.callback_query
     await query.answer()
-    _, subject, option = query.data.split("_", 2)
+    data_parts = query.data.split("_", 2)
+    subject = data_parts[1]
+    option = data_parts[2]
     
     # Create folder path
     folder_name = subject.replace(" & ", "_").replace(" ", "_")
@@ -134,35 +142,59 @@ async def handle_option(update: Update, context: ContextTypes.DEFAULT_TYPE):
     folder_path = f"files/{folder_name}/{option_folder}"
     
     # Send files if they exist
-    if os.path.exists(folder_path):
-        files_sent = False
-        for file in os.listdir(folder_path):
-            file_path = os.path.join(folder_path, file)
-            if os.path.isfile(file_path):
-                files_sent = True
-                with open(file_path, 'rb') as f:
-                    await context.bot.send_document(
-                        chat_id=query.message.chat_id,
-                        document=f,
-                        caption=f"📁 {subject} - {option}"
-                    )
-        
-        if files_sent:
-            # Show main menu again after sending files
-            await show_main_menu(update, context)
+    try:
+        if os.path.exists(folder_path):
+            files_sent = False
+            for file in os.listdir(folder_path):
+                file_path = os.path.join(folder_path, file)
+                if os.path.isfile(file_path):
+                    files_sent = True
+                    with open(file_path, 'rb') as f:
+                        await context.bot.send_document(
+                            chat_id=query.message.chat_id,
+                            document=f,
+                            caption=f"📁 {subject} - {option}"
+                        )
+            
+            if files_sent:
+                # Show main menu again after sending files
+                await show_main_menu(update, context)
+            else:
+                await query.edit_message_text("📭 No files found in this category.")
         else:
-            await query.edit_message_text("📭 No files found in this category.")
-    else:
-        await query.edit_message_text("📭 No files available for this selection.")
+            await query.edit_message_text("📭 No files available for this selection.")
+    except Exception as e:
+        logger.error(f"File sending error: {e}")
+        await query.edit_message_text("⚠️ Error loading files. Please try again later.")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle any text message"""
     if await check_membership(update, context):
         await show_main_menu(update, context)
 
-def main():
-    """Start the bot"""
-    application = Application.builder().token(BOT_TOKEN).build()
+@app.route('/')
+def home():
+    return "Bot is active!"
+
+@app.post('/webhook')
+async def webhook():
+    """Handle Telegram updates via webhook"""
+    if request.headers.get('X-Telegram-Bot-Api-Secret-Token') != os.environ.get('SECRET_TOKEN'):
+        return "Unauthorized", 403
+    
+    json_data = request.get_json()
+    update = Update.de_json(json_data, application.bot)
+    await application.process_update(update)
+    return "OK", 200
+
+def run_flask():
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
+
+if __name__ == "__main__":
+    # Initialize bot application
+    request_config = HTTPXRequest(connection_pool_size=50)
+    application = Application.builder().token(BOT_TOKEN).request(request_config).build()
     
     # Add handlers
     application.add_handler(CommandHandler("start", start))
@@ -171,9 +203,23 @@ def main():
     application.add_handler(CallbackQueryHandler(handle_option, pattern="^option_"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    # Start bot
-    logging.info("Bot is running...")
-    application.run_polling()
-
-if __name__ == "__main__":
-    main()
+    # Webhook or polling mode
+    PORT = int(os.environ.get('PORT', 5000))
+    RENDER_URL = os.environ.get('RENDER_URL')
+    SECRET_TOKEN = os.environ.get('SECRET_TOKEN')
+    
+    if RENDER_URL and SECRET_TOKEN:
+        # Webhook mode for production
+        logger.info("Configuring webhook...")
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            url_path="webhook",
+            webhook_url=f"{RENDER_URL}/webhook",
+            secret_token=SECRET_TOKEN
+        )
+    else:
+        # Polling mode for development
+        logger.info("Starting in polling mode...")
+        Thread(target=run_flask, daemon=True).start()
+        application.run_polling()

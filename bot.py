@@ -66,7 +66,6 @@ courses = {
                 {
                     "name": "Calculus for Economics",
                     "files": [
-                        # No "Lecture Notes" text, just file_id
                         {"file_id": "BQACAgQAAyEFAASeigO-AAMEaFh1xjxYUA9dOnrzT9gLMs7U_U8AAtEYAAKhpchSpSkYPNh2RDs2BA"},
                         {"file_id": "BQACAgQAAyEFAASeigO-AAMFaFh1xr6Nhb5I8lvjtmVVwfrrx1oAAtIYAAKhpchSu9ofq12HUWM2BA"}
                     ]
@@ -154,11 +153,8 @@ courses = {
                     "files": []
                 }
             ]
-            # Add "2 semester" as needed
         }
-        # Add "3 year" and "Questions" as needed
     }
-    # Add more fields as needed...
 }
 
 # ========== LOGGING ==========
@@ -217,7 +213,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=join_button
                 )
             return
-        # If user is a member, show the main menu
         keyboard = [
             [InlineKeyboardButton(field, callback_data=f"field|{field}")]
             for field in MAIN_FIELDS
@@ -242,7 +237,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton(year, callback_data=f"select_year|{field}|{year}")]
             for year in YEARS
         ]
-        # Back button to main menu
         keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_main")])
         text = f"Select year for {field}:"
         markup = InlineKeyboardMarkup(keyboard)
@@ -255,7 +249,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton(field, callback_data=f"select_year|{field}|{year}")]
             for field in MAIN_FIELDS
         ]
-        # Back button to main menu
         keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_main")])
         text = f"Select field for {year}:"
         markup = InlineKeyboardMarkup(keyboard)
@@ -268,7 +261,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton(sem, callback_data=f"semester|{field}|{year}|{sem}")] for sem in semesters
         ]
-        # Back button to field menu
         keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"field|{field}")])
         text = f"Select semester for {field} - {year}:"
         markup = InlineKeyboardMarkup(keyboard)
@@ -282,7 +274,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton(course["name"], callback_data=f"course|{field}|{year}|{semester}|{idx}")]
             for idx, course in enumerate(course_list)
         ]
-        # Back button to year (semester select) menu
         keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"select_year|{field}|{year}")])
         text = f"Select course for {field} - {year} - {semester}:"
         markup = InlineKeyboardMarkup(keyboard)
@@ -293,26 +284,39 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         field, year, semester, idx = data[1], data[2], data[3], int(data[4])
         course = courses.get(field, {}).get(year, {}).get(semester, [])[idx]
         files = course.get("files", [])
-        # If this course is Calculus for Economics and has two files, send both with one button!
         if course["name"] == "Calculus for Economics" and len(files) == 2 and all("file_id" in f for f in files):
             for f in files:
                 file_id = f.get("file_id")
                 if file_id:
-                    await query.message.reply_document(file_id)
-            # Show back button after sending files
+                    await query.message.reply_document(
+                        file_id,
+                        protect_content=True
+                    )
+            # Show back button after sending files, and resend file menu at the top for chat history style
             keyboard = [
                 [InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")]
             ]
             text = "Choose what to do next:"
             markup = InlineKeyboardMarkup(keyboard)
-            await query.edit_message_text(text, reply_markup=markup)
+            # Send the course menu again, so files always appear above the back button
+            course_list = courses.get(field, {}).get(year, {}).get(semester, [])
+            file_menu_keyboard = [
+                [InlineKeyboardButton(course["name"], callback_data=f"course|{field}|{year}|{semester}|{idx}")]
+                for idx, course in enumerate(course_list)
+            ]
+            file_menu_keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"select_year|{field}|{year}")])
+            file_menu_markup = InlineKeyboardMarkup(file_menu_keyboard)
+            await query.message.reply_text(
+                f"Select course for {field} - {year} - {semester}:",
+                reply_markup=file_menu_markup
+            )
+            return
         else:
             if files:
                 keyboard = [
                     [InlineKeyboardButton(f.get("title", "File"), callback_data=f"file|{field}|{year}|{semester}|{idx}|{fidx}")]
                     for fidx, f in enumerate(files)
                 ]
-                # Back button to course list
                 keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")])
                 text = f"Choose a file for {course['name']}:"
                 markup = InlineKeyboardMarkup(keyboard)
@@ -334,21 +338,26 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file_id = file.get("file_id")
         url = file.get("url")
         if file_id:
-            await query.message.reply_document(file_id)
+            await query.message.reply_document(
+                file_id,
+                protect_content=True
+            )
         elif url:
             await query.message.reply_text(f"{file.get('title', '')}: {url}")
         else:
             await query.message.reply_text("Sorry, this file is not available.")
-        # After sending, show back button
+        # After sending, show file menu again (so files appear above)
+        files = course.get("files", [])
         keyboard = [
-            [InlineKeyboardButton("🔙 Back", callback_data=f"course|{field}|{year}|{semester}|{idx}")]
+            [InlineKeyboardButton(f.get("title", "File"), callback_data=f"file|{field}|{year}|{semester}|{idx}|{fidx2}")]
+            for fidx2, f in enumerate(files)
         ]
-        text = "Choose what to do next:"
+        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"course|{field}|{year}|{semester}|{idx}")])
+        text = f"Choose a file for {course['name']}:"
         markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(text, reply_markup=markup)
+        await query.message.reply_text(text, reply_markup=markup)
 
     elif data[0] == "back_to_main":
-        # Show main fields again (first menu)
         keyboard = [
             [InlineKeyboardButton(field, callback_data=f"field|{field}")]
             for field in MAIN_FIELDS
@@ -369,12 +378,10 @@ async def doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ========== MAIN ==========
 def main():
     try:
-        # Start dummy web server in background
         start_web_server()
         app = ApplicationBuilder().token(BOT_TOKEN).build()
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CallbackQueryHandler(button))
-        # Document/file handler for printing file_id
         app.add_handler(MessageHandler(filters.Document.ALL, doc_handler))
         logger.info("Bot is running...")
         app.run_polling()

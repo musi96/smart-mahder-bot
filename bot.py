@@ -1,6 +1,6 @@
 import os
 import logging
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -9,14 +9,13 @@ from telegram.ext import (
     MessageHandler,
     filters
 )
-from telegram.request import HTTPXRequest
-from flask import Flask, request
+from flask import Flask
 from threading import Thread
 
-# Bot configuration
-BOT_TOKEN = os.environ.get('BOT_TOKEN', 'YOUR_DEFAULT_BOT_TOKEN')
-CHANNEL_USERNAME = "@sample_123456"
-CHANNEL_ID = -1002659845054  # Replace with your channel ID
+# Bot configuration - REPLACE WITH YOUR VALUES
+BOT_TOKEN = "YOUR_BOT_TOKEN"
+CHANNEL_USERNAME = "@your_channel_username"  # Must start with @
+CHANNEL_ID = -1000000000000  # Replace with your negative channel ID
 
 # Define subjects and options
 SUBJECTS = [
@@ -40,11 +39,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Flask app setup
+# Flask app setup for Render.com keep-alive
 app = Flask(__name__)
 
-# Initialize application globally
-application = None
+@app.route('/')
+def home():
+    return "Bot is active!"
+
+def run_flask():
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
+
+# Start Flask server in a separate thread
+Thread(target=run_flask, daemon=True).start()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send welcome message with subject buttons if user is member"""
@@ -75,17 +82,20 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
                     [InlineKeyboardButton("✅ I've Joined", callback_data="verify_join")]
                 ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
                 if update.message:
                     await update.message.reply_text(
                         f"⚠️ Please join our channel first: {CHANNEL_USERNAME}",
-                        reply_markup=InlineKeyboardMarkup(keyboard)
+                        reply_markup=reply_markup
                     )
                 else:
                     query = update.callback_query
                     await query.answer()
                     await query.edit_message_text(
                         f"⚠️ Please join our channel first: {CHANNEL_USERNAME}",
-                        reply_markup=InlineKeyboardMarkup(keyboard)
+                        reply_markup=reply_markup
+                    )
                 return False
         return True
     except Exception as e:
@@ -172,29 +182,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await check_membership(update, context):
         await show_main_menu(update, context)
 
-@app.route('/')
-def home():
-    return "Bot is active!"
-
-@app.post('/webhook')
-async def webhook():
-    """Handle Telegram updates via webhook"""
-    if request.headers.get('X-Telegram-Bot-Api-Secret-Token') != os.environ.get('SECRET_TOKEN'):
-        return "Unauthorized", 403
-    
-    json_data = request.get_json()
-    update = Update.de_json(json_data, application.bot)
-    await application.process_update(update)
-    return "OK", 200
-
-def run_flask():
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
-
-if __name__ == "__main__":
-    # Initialize bot application
-    request_config = HTTPXRequest(connection_pool_size=50)
-    application = Application.builder().token(BOT_TOKEN).request(request_config).build()
+def main():
+    """Start the bot"""
+    application = Application.builder().token(BOT_TOKEN).build()
     
     # Add handlers
     application.add_handler(CommandHandler("start", start))
@@ -203,23 +193,9 @@ if __name__ == "__main__":
     application.add_handler(CallbackQueryHandler(handle_option, pattern="^option_"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
-    # Webhook or polling mode
-    PORT = int(os.environ.get('PORT', 5000))
-    RENDER_URL = os.environ.get('RENDER_URL')
-    SECRET_TOKEN = os.environ.get('SECRET_TOKEN')
-    
-    if RENDER_URL and SECRET_TOKEN:
-        # Webhook mode for production
-        logger.info("Configuring webhook...")
-        application.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            url_path="webhook",
-            webhook_url=f"{RENDER_URL}/webhook",
-            secret_token=SECRET_TOKEN
-        )
-    else:
-        # Polling mode for development
-        logger.info("Starting in polling mode...")
-        Thread(target=run_flask, daemon=True).start()
-        application.run_polling()
+    # Start bot
+    logger.info("Bot is running...")
+    application.run_polling()
+
+if __name__ == "__main__":
+    main()

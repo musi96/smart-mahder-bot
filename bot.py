@@ -14,7 +14,7 @@ import os
 
 # ========== BOT CONFIGURATION ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN", "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY")
-CHANNEL_USERNAME = "@sample_123456"
+CHANNEL_USERNAME = "sample_123456"  # No @
 CHANNEL_ID = -1002659845054  # negative for supergroups
 
 WELCOME_TEXT = (
@@ -156,7 +156,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not await is_user_member(user_id, context):
         join_button = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+            [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
             [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
         ])
         await update.message.reply_text(
@@ -180,7 +180,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "check_membership":
         if not await is_user_member(user_id, context):
             join_button = InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+                [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
                 [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
             ])
             await query.edit_message_text(
@@ -199,7 +199,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Membership check for all other buttons
     if not await is_user_member(user_id, context):
         join_button = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+            [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
             [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
         ])
         await query.edit_message_text(

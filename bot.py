@@ -161,6 +161,13 @@ async def is_user_member(user_id, context):
         logger.warning(f"Failed to check membership: {e}")
         return False
 
+def make_big_buttons(rows, back_callback=None):
+    """Makes each row a single big button. Appends back button if needed."""
+    keyboard = [[InlineKeyboardButton(text, callback_data=callback)] for text, callback in rows]
+    if back_callback:
+        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=back_callback)])
+    return InlineKeyboardMarkup(keyboard)
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     join_button = InlineKeyboardMarkup([
@@ -173,11 +180,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Please join our channel to access the bot!", reply_markup=join_button
             )
         return
-    keyboard = [
-        [InlineKeyboardButton(field, callback_data=f"field|{field}")]
-        for field in MAIN_FIELDS
-    ]
-    await update.message.reply_text("Select your field:", reply_markup=InlineKeyboardMarkup(keyboard))
+    field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
+    await update.message.reply_text("Select your field:", reply_markup=make_big_buttons(field_rows))
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -197,11 +201,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=join_button
                 )
             return
-        keyboard = [
-            [InlineKeyboardButton(field, callback_data=f"field|{field}")]
-            for field in MAIN_FIELDS
-        ]
-        markup = InlineKeyboardMarkup(keyboard)
+        field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
+        markup = make_big_buttons(field_rows)
         if not is_same_message(query.message, "Select your field:", markup):
             await query.edit_message_text("Select your field:", reply_markup=markup)
         return
@@ -216,50 +217,35 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data.split("|")
     if data[0] == "field":
         field = data[1]
-        keyboard = [
-            [InlineKeyboardButton(year, callback_data=f"select_year|{field}|{year}")]
-            for year in YEARS
-        ]
-        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_main")])
+        year_rows = [(year, f"select_year|{field}|{year}") for year in YEARS]
+        markup = make_big_buttons(year_rows, back_callback="back_to_main")
         text = f"Select year for {field}:"
-        markup = InlineKeyboardMarkup(keyboard)
         if not is_same_message(query.message, text, markup):
             await query.edit_message_text(text, reply_markup=markup)
 
     elif data[0] == "year":
         year = data[1]
-        keyboard = [
-            [InlineKeyboardButton(field, callback_data=f"select_year|{field}|{year}")]
-            for field in MAIN_FIELDS
-        ]
-        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_main")])
+        field_rows = [(field, f"select_year|{field}|{year}") for field in MAIN_FIELDS]
+        markup = make_big_buttons(field_rows, back_callback="back_to_main")
         text = f"Select field for {year}:"
-        markup = InlineKeyboardMarkup(keyboard)
         if not is_same_message(query.message, text, markup):
             await query.edit_message_text(text, reply_markup=markup)
 
     elif data[0] == "select_year":
         field, year = data[1], data[2]
         semesters = list(courses.get(field, {}).get(year, {}).keys())
-        keyboard = [
-            [InlineKeyboardButton(sem, callback_data=f"semester|{field}|{year}|{sem}")] for sem in semesters
-        ]
-        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"field|{field}")])
+        sem_rows = [(sem, f"semester|{field}|{year}|{sem}") for sem in semesters]
+        markup = make_big_buttons(sem_rows, back_callback=f"field|{field}")
         text = f"Select semester for {field} - {year}:"
-        markup = InlineKeyboardMarkup(keyboard)
         if not is_same_message(query.message, text, markup):
             await query.edit_message_text(text, reply_markup=markup)
 
     elif data[0] == "semester":
         field, year, semester = data[1], data[2], data[3]
         course_list = courses.get(field, {}).get(year, {}).get(semester, [])
-        keyboard = [
-            [InlineKeyboardButton(course["name"], callback_data=f"course|{field}|{year}|{semester}|{idx}")]
-            for idx, course in enumerate(course_list)
-        ]
-        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"select_year|{field}|{year}")])
+        course_rows = [(course["name"], f"course|{field}|{year}|{semester}|{idx}") for idx, course in enumerate(course_list)]
+        markup = make_big_buttons(course_rows, back_callback=f"select_year|{field}|{year}")
         text = f"Select course for {field} - {year} - {semester}:"
-        markup = InlineKeyboardMarkup(keyboard)
         if not is_same_message(query.message, text, markup):
             await query.edit_message_text(text, reply_markup=markup)
 
@@ -275,29 +261,23 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         file_id,
                         protect_content=True
                     )
-            # Remove buttons by editing the current message to blank with just a back button
-            keyboard = [
-                [InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")]
-            ]
-            await query.edit_message_text("Choose what to do next:", reply_markup=InlineKeyboardMarkup(keyboard))
+            # Only show a big back button after the files
+            markup = make_big_buttons([], back_callback=f"semester|{field}|{year}|{semester}")
+            await query.edit_message_text("Choose what to do next:", reply_markup=markup)
             return
         else:
             if files:
-                keyboard = [
-                    [InlineKeyboardButton(f.get("title", "File"), callback_data=f"file|{field}|{year}|{semester}|{idx}|{fidx}")]
+                file_rows = [
+                    (f.get("title", "File"), f"file|{field}|{year}|{semester}|{idx}|{fidx}")
                     for fidx, f in enumerate(files)
                 ]
-                keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")])
+                markup = make_big_buttons(file_rows, back_callback=f"semester|{field}|{year}|{semester}")
                 text = f"Choose a file for {course['name']}:"
-                markup = InlineKeyboardMarkup(keyboard)
                 if not is_same_message(query.message, text, markup):
                     await query.edit_message_text(text, reply_markup=markup)
             else:
-                keyboard = [
-                    [InlineKeyboardButton("🔙 Back", callback_data=f"semester|{field}|{year}|{semester}")]
-                ]
+                markup = make_big_buttons([], back_callback=f"semester|{field}|{year}|{semester}")
                 text = "No files available for this course."
-                markup = InlineKeyboardMarkup(keyboard)
                 if not is_same_message(query.message, text, markup):
                     await query.edit_message_text(text, reply_markup=markup)
 
@@ -316,18 +296,13 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text(f"{file.get('title', '')}: {url}")
         else:
             await query.message.reply_text("Sorry, this file is not available.")
-        # Remove menu/buttons at the top after sending file, just show a back button
-        keyboard = [
-            [InlineKeyboardButton("🔙 Back", callback_data=f"course|{field}|{year}|{semester}|{idx}")]
-        ]
-        await query.edit_message_text("Choose what to do next:", reply_markup=InlineKeyboardMarkup(keyboard))
+        # Show only a big back button after the file
+        markup = make_big_buttons([], back_callback=f"course|{field}|{year}|{semester}|{idx}")
+        await query.edit_message_text("Choose what to do next:", reply_markup=markup)
 
     elif data[0] == "back_to_main":
-        keyboard = [
-            [InlineKeyboardButton(field, callback_data=f"field|{field}")]
-            for field in MAIN_FIELDS
-        ]
-        markup = InlineKeyboardMarkup(keyboard)
+        field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
+        markup = make_big_buttons(field_rows)
         if not is_same_message(query.message, "Select your field:", markup):
             await query.edit_message_text("Select your field:", reply_markup=markup)
 

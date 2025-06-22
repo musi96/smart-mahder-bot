@@ -60,9 +60,9 @@ courses = {
                 {
                     "name": "Calculus for Economics",
                     "files": [
-                        # Replace these with real file_ids after uploading!
-                        {"title": "Lecture Notes", "file_id": "PASTE_REAL_FILE_ID_1"},
-                        {"title": "Lecture Notes", "file_id": "PASTE_REAL_FILE_ID_2"}
+                        # Updated with new file_ids as requested
+                        {"title": "Lecture Notes", "file_id": "BQACAgQAAyEFAASeigO-AAMEaFh1xjxYUA9dOnrzT9gLMs7U_U8AAtEYAAKhpchSpSkYPNh2RDs2BA"},
+                        {"title": "Lecture Notes", "file_id": "BQACAgQAAyEFAASeigO-AAMFaFh1xr6Nhb5I8lvjtmVVwfrrx1oAAtIYAAKhpchSu9ofq12HUWM2BA"}
                     ]
                 },
                 {

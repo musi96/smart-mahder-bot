@@ -9,6 +9,8 @@ from telegram.ext import (
     CommandHandler,
     CallbackQueryHandler,
     ContextTypes,
+    MessageHandler,
+    filters,
 )
 import os
 import asyncio
@@ -32,7 +34,7 @@ def start_web_server():
     print(f"Dummy web server running on port {port}")
 
 # ========== BOT CONFIGURATION ==========
-BOT_TOKEN = os.getenv("BOT_TOKEN", "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "PASTE_YOUR_BOT_TOKEN_HERE")
 CHANNEL_USERNAME = "sample_123456"  # No @
 CHANNEL_ID = -1002659845054  # negative for supergroups
 
@@ -58,21 +60,21 @@ courses = {
                 {
                     "name": "Calculus for Economics",
                     "files": [
-                        # Both lecture notes under one title/button
-                        {"title": "Lecture Notes", "file_id": "AgAD0RgAAqGlyFI"},
-                        {"title": "Lecture Notes", "file_id": "AgAD0hgAAqGlyFI"}
+                        # Replace these with real file_ids after uploading!
+                        {"title": "Lecture Notes", "file_id": "PASTE_REAL_FILE_ID_1"},
+                        {"title": "Lecture Notes", "file_id": "PASTE_REAL_FILE_ID_2"}
                     ]
                 },
                 {
                     "name": "Accounting 1",
                     "files": [
-                        {"title": "Textbook", "file_id": "BQACAgUAA3"}
+                        {"title": "Textbook", "file_id": "PASTE_REAL_FILE_ID_3"}
                     ]
                 },
                 {
                     "name": "Macro Economics 1",
                     "files": [
-                        {"title": "Slides", "file_id": "BQACAgUAA4"}
+                        {"title": "Slides", "file_id": "PASTE_REAL_FILE_ID_4"}
                     ]
                 },
                 {
@@ -316,6 +318,15 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         await query.edit_message_text(WELCOME_TEXT, reply_markup=InlineKeyboardMarkup(keyboard))
 
+# ========== DOCUMENT HANDLER TO PRINT file_id ==========
+async def doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message and update.message.document:
+        file_id = update.message.document.file_id
+        print(f"file_id: {file_id}")
+        await update.message.reply_text(
+            f"Received! file_id printed to console:\n{file_id}"
+        )
+
 # ========== MAIN ==========
 def main():
     try:
@@ -324,6 +335,8 @@ def main():
         app = ApplicationBuilder().token(BOT_TOKEN).build()
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CallbackQueryHandler(button))
+        # Document/file handler for printing file_id
+        app.add_handler(MessageHandler(filters.Document.ALL, doc_handler))
         logger.info("Bot is running...")
         app.run_polling()
     except Conflict as e:

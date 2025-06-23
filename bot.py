@@ -48,7 +48,7 @@ def is_same_message(message, new_text, new_reply_markup):
     return (current_text == (new_text or "")) and (current_markup == new_reply_markup)
 
 # Updated make_centered_big_buttons to handle text overflow and blank buttons
-def make_centered_big_buttons(rows, back_callback=None, max_length=25):
+def make_centered_big_buttons(rows, back_callback=None, max_length=50):
     keyboard = []
     for text, callback in rows:
         display_text = text
@@ -58,7 +58,7 @@ def make_centered_big_buttons(rows, back_callback=None, max_length=25):
         else:
             # Truncate text if too long, but keep readable
             if len(text) > max_length:
-                display_text = text[:max_length - 2] + "…"
+                display_text = text[:max_length - 4] + "…"
         # Add more spaces for better visibility (remove excessive unicode spaces)
         keyboard.append([InlineKeyboardButton(f"{display_text}", callback_data=callback)])
     if back_callback:

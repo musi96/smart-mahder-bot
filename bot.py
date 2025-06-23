@@ -319,7 +319,7 @@ courses = {
         }
     }
  },
-        "4 year": {  # old "3 year"
+               "4 year": {  # old "3 year"
             # Add courses here as needed
         }
     }

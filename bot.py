@@ -182,144 +182,39 @@ courses = {
                 }
             ]
         },
-               "3 year": {
+        "3 year": {  # old "2 year"
             "1 semester": [
                 {
                     "name": "Mathematical Economics",
-                    "files": [
-                        {"file_id": "BQACAgQAAxkBAAIDBWhZvM8eClDFYgo7CPDkJxQhP7kXAAJ5FgACDtQgU0w8DeCP0seINgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDBmhZvM95-qZflBrfHdJrS2q5sRyaAAL4DgAC1LGgUhlSv4Fttk4JNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDB2hZvM_HWjS8UpbAPyuQF3iotta5AAIOFgACVDwwU1lX7F-M15fENgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDCGhZvM8CWyqpoo5W80qrtvBIOwAB7wACDhgAAreaCVIadiY-n2rpODYE"},
-                        {"file_id": "BQACAgQAAxkBAAIDCWhZvM_zaMTKPn5ipiT-MY4U01YWAAICFwAC91mhUfRvxlhsi09pNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDCmhZvM8feg3lFo6yYEAG8K_YbleFAAI9HQACw08YUUpQkVBlvMdENgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDC2hZvM9Rth5Kr01efUhEKRPWzoULAAIOGQACV-1oUOak6Nt2npK-NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDDGhZvM8XmOGkWYVJnrQCc20KjR3-AAKXHAAC_8IoUpHbVLM-Bu7hNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDDWhZvM_WEjweAAGngqPO4hCEURmLYwACPhcAAqkI6FJ0c83JNr2KkzYE"}
-                    ]
+                    "files": []
                 },
                 {
                     "name": "Econometrics 1",
-                    "files": [
-                        {"file_id": "BQACAgQAAxkBAAIDF2hZvUInOerbVn7SXOKc7fuX_VrSAAJ1FgACDtQgU1cxMgTEGThoNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDGGhZvUILG5AZs9OheBAk-m9GbFPFAAKAFgACDtQgU-FlxpoRl1oUNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDGWhZvUKqMBOQ7hRQbOhAtnQ1vnBnAAMTAAIfJ1FT86d9Knfy2Bc2BA"},
-                        {"file_id": "BQACAgQAAxkBAAIDGmhZvUJ309hYE82GXyLPQCexS4nvAAJrEwACmRqYUxrkuQUdY3apNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDG2hZvUJ2eXBk9mzOLi5aNwGcaK_QAAIHEwACjMXpUWyMm8hFPBekNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDHGhZvUKko638mBbQukgCgoYiSoTwAAJREwACjMXpUSs2c5B7Sd7fNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDHWhZvUKGKKpCDgHApN_ErOrzrdm3AAIKGAACt5oJUnyuqySQVSPUNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDHmhZvUJSKgVDUslymGRLpLGWMq7pAAL7FgAC91mhUXQ4q4a-7_vlNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDH2hZvUKPaauUqRhLAAGe1VUFhUPlFAACPB0AAsNPGFF5KQnANEgOJjYE"},
-                        {"file_id": "BQACAgQAAxkBAAIDIGhZvUKBJvQFO3QIX1aLPn7S1rhZAAIoFwAC8HbwU-DYW5jyfm4-NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDIWhZvUJgGBf8-OSVORXLFsXH9v7bAAK2FgACAcc4UCbqEZtmVuPXNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDImhZvULzYto6ZqXwHOJijdOugg8QAAJfFQACpZbpUBDnzCv8evI7NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDI2hZvUJ3fwMh-RScgVIMNukro4CLAAJrLgACSyDQUT0xKqdNf7qDNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDJGhZvUIvHT3pxRtKE6dgZLqzgSBGAAKKFAACS9ygUBKxlMGiXm63NgQ"}
-                    ]
+                    "files": []
                 },
                 {
                     "name": "Financial Economics 1",
-                    "files": [
-                        {"file_id": "BQACAgQAAxkBAAIDM2hZvaX3WtpOqL3xI40R8e8fy52-AAIgFQAClBwJU_B0VgKvZ-SdNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDNGhZvaX__B6Zi4fPf8D7ERX3tI3vAAI7FgACDdUAAVAjYK4iNEsGJzYE"},
-                        {"file_id": "BQACAgQAAxkBAAIDNWhZvaXEs0VQ-V3v3uFxwvpdWE--AAIdEgACcGg5UTiN3rsgrIC_NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDNmhZvaU67J_cxl6J-SQ3PF19AhS0AAIsEgACF4voURVxBD8b18v1NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDN2hZvaWFSYi0OdrcoaPpUTQhM_7dAAKeFQACSSKRUVN6BdNZlfnJNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDOGhZvaX4FNpjoBZIiYEQ4X99MXOkAAJ0FQACnighUmTBoOsK6Qz2NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDOWhZvaXvUszh0zUopOSpuCj3sTVUAAJ1FQACnighUonU6bcSmd2ENgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDOmhZvaWcdPE7rxnhbBHIR10DZddMAAJ2FQACnighUkk3Z-4Emo1QNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDO2hZvaWRvYxYtgTAHOP4kiQZuBFzAAJ4FQACnighUvLtr5oah9gNNgQ"}
-                    ]
+                    "files": []
                 },
                 {
                     "name": "Introduction to Management",
-                    "files": [
-                        {"file_id": "BQACAgQAAxkBAAIDRWhZvgnFRmnycqh46TRggA6fDytqAAJ7EQACH8GAU153-r8JRyfBNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDRmhZvglxxFgJ6Gl2pQ5tg7RHpdEGAAKAEAACxWlwUKdlY3XWQUQ8NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDR2hZvgn33IiWzolDWXgRsnkLE8OaAAKBEAACxWlwUD5i4VG9o6ASNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDSGhZvgmpBZzAkem8HyiGHHPDJA7SAALpEQACfwABcFHjEMehOv7i8TYE"},
-                        {"file_id": "BQACAgQAAxkBAAIDSWhZvgklTodRo1-5Mm5x7QysSbWnAAIlGAACcQ6xUGqhVdRgLPLENgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDSmhZvgkomD0RVFG2Jz8yUWHD8qsOAAL0GAACoOgZUqLA5mXpc5tnNgQ"}
-                    ]
+                    "files": []
                 },
                 {
                     "name": "Labor Economics",
-                    "files": [
-                        {"file_id": "BQACAgQAAxkBAAIDUWhZvm6xLG9VnV9JF8kJy3U7IuGYAAJ6FgACDtQgU1kzFjXs6ce0NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDUmhZvm56JFe-vypIQQ5L2rMcIauUAAK5FAACtG8AAVOaheGQEkCP5zYE"},
-                        {"file_id": "BQACAgQAAxkBAAIDU2hZvm7goqj5OKXLLvUAAcWcW77POQACuhQAArRvAAFTfZrGF1M9ZbM2BA"},
-                        {"file_id": "BQACAgQAAxkBAAIDVGhZvm4BVZG-_Oefg9wjFWE9KjS0AAK7FAACtG8AAVPRSYwg50lSRzYE"},
-                        {"file_id": "BQACAgQAAxkBAAIDVWhZvm7rpgjJlI8AAfwBOBxEqPhhegACPhMAAkoIkFPvwtisEhSrejYE"},
-                        {"file_id": "BQACAgQAAxkBAAIDVmhZvm4AAUhI2rnfpiIVNxaAGTKIlgAC6RcAAtOGwVNCsTD5OArT1zYE"},
-                        {"file_id": "BQACAgQAAxkBAAIDV2hZvm7DBEiVPpkqssCX0Sh5wLZHAALqFwAC04bBU_p2VLfjDjDjNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDWGhZvm5VYblel7BZOPg-dTq3_xI9AALsFwAC04bBU4M2eHdIzOLCNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDWWhZvm6e_6mGBsjI5_SKG2Pn2rM2AAJTGwACDgfhU88bEt7ga_16NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDWmhZvm73GDhLhRKmZ75ejrKRfjlmAAJUGwACDgfhUxAcbzRBf_VzNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDW2hZvm5g9Yd6oV5n-pfwQrgk2kOOAAJuGAACPdphUUKvpbzoywW6NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDXGhZvm6kDbrCtEaEopdLohuip3zYAAJWGwACDgfhU_AR63zRVyXVNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDXWhZvm5gKotHQjmmeMjUSy4TgP0IAAKGFgACipsBUAtU8HE5leWrNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDXmhZvm7OoatRMt6-181_Gf3MDQjMAAJnGAACPdphUXdNJRDL6emnNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDX2hZvm5g9Yd6oV5n-pfwQrgk2kOOAAJuGAACPdphUUKvpbzoywW6NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDYGhZvm5UuyktKIyMCo6opYY0dpKEAAK7FgACUXeoUSHZRETHB6FDNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDYWhZvm7XVnx7bS9uVTqGwF9j9bGnAALSFgACjse4UTh9TF0i4gXBNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDYmhZvm7PVf9AYmg1pd8NZGFaH8DbAAIMFgACjsfAUYcEL8ci1mRZNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDY2hZvm6eKHevOBqkcKR7066G_J3ZAAKrGAACiMTAUVoLediyfDcpNgQ"}
-                    ]
+                    "files": []
                 },
                 {
                     "name": "Developmental Economics 1",
-                    "files": [
-                        {"file_id": "BQACAgQAAxkBAAIDd2hZvtdSln3q0KU7Ph7gMIrD9UVRAAIIEwACK3thUDjb8ByVuSyuNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDeGhZvtdhheTLeaKd8yLc0ygWS2LzAALLDQACMu_ZU7HZHaeihLddNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDeWhZvtdpLdl_Q0gmyjslUoUZ3DkjAAKBGAACLcqZU-G0orjJdxZ_NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDemhZvtc6vgOUlmBbKtc2IxZSzJTlAAIQFgACVDwwUwpg0rHbzE4SNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDe2hZvtfolo3Mi5d1yHG7Vp2-q4vXAAIVFwAC91mhUXoWZHh8enspNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDfGhZvtelL7dGmmMRa1ATXnIPedfDAALWFAACmXB4UDgC38n9zCe0NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDfWhZvtclzUQx1iEmT1fcZ9SnOiVZAAJSEQACPcaxUvmUjEhrpIXwNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDfmhZvtd3zjY2q-5RT1IGKxdeIwToAAJbEAAC92j4UiPocX-E4ZgGNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDf2hZvtcLTq2q3ziWYHZv_y2EJKoJAAJ2FwACGTUhUGE92roWUGf_NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDgGhZvtfpRqmTY6olSOOG11oviWvBAAJ3FwACGTUhUI9MCU5wjMNxNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDgWhZvtf4JAf3NAalDbSl1w1Lro7zAAJ4FwACGTUhUGF3baAZCAPmNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDgmhZvtcKfGOn7OJ-tSBQQhQ4YIobAAJQFQAC1HbIUeKAzFZZ-qr_NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDg2hZvteluogiir6HJybDUsNwxUjAAAJRFQAC1HbIUbE_4HFDKM8MNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDhGhZvtda-b82JEzHMrJa5RSrGjwdAAJSFQAC1HbIUYZMZwThIOt8NgQ"}
-                    ]
+                    "files": []
                 },
                 {
                     "name": "International Economics 1",
-                    "files": [
-                        {"file_id": "BQACAgQAAxkBAAIDk2hZvz5DUmmLkiL1Jh6w0jNt8hGRAAJ7FgACDtQgU8bthk47hey4NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDlGhZvz6Djyjz2FMAAc49OW679_bcFAACfBYAAg7UIFPYyrPcg8rSBjYE"},
-                        {"file_id": "BQACAgQAAxkBAAIDlWhZvz7ZKf7s1wFnmqAQ5DyqZaFgAAJ9FgACDtQgU44aPH4gX2vKNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDlmhZvz5jS_yM-oI1V7Z9-HDcbjtuAAJQEQACZN1pUkZD-1Xj9c80NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDl2hZvz6fJFqXDWX1VDYPi2Hpria0AAKuFAACOwPAUob7bgZIj7GuNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDmGhZvz6opelmI3VsK13AbbTkqbCkAAJMEAACVMGgU7UHsAxBZdxENgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDmWhZvz7zPyYIUNot0LT7yn3SkX5lAAILFAACrOk5URaV2iLP-swsNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDmmhZvz4bJPa54lYLAmUXySVL27MhAAIMFAACrOk5UT39SAQB4lSVNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDm2hZvz6AJLMxs6G3b35sXgdKfmKDAAINFAACrOk5UUfAl5UhhnWnNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDnGhZvz7vq4dWW5-cn2xWvkuzGFj4AALIFAACMLVhUxOtkjplMr6CNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDnWhZvz4gTA2cCP1U6hE-SgABMNGlYwACyRQAAjC1YVOgpEFjjs8rbzYE"},
-                        {"file_id": "BQACAgQAAxkBAAIDnmhZvz5UoLGnMcI5qmNib6cRiHdIAALKFAACMLVhU3BcSxEKg9b9NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDn2hZvz7epivJsNId6RZqb136TMCAAALLFAACMLVhU13b8BGsM8gCNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDoGhZvz6tWQd6BhYSu5lGhzTTtSRCAALMFAACMLVhUyBfS67mXIvkNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDoWhZvz5XEvZGdToGhJBNxqV2Sy4TAAILGAACt5oJUgHqAtakdpn-NgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDomhZvz5Ds442kwL-KD7bwmxh5HamAAIDFwAC91mhUeuN9_TWt5fhNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDo2hZvz4YRrf0luyuZvcbll6X6OXHAAI-HQACw08YUbCH9JkrsPHLNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDpGhZvz6kcqA4sDhyYE7ZMV07Qgo9AAI7HQACw08YUU3SFgU8jrZeNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDpWhZvz6JJWUCEuhPHOizEibE_QX7AAKUEgACXApYU1-CTEym5nErNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDpmhZvz4227zZ6GU_i-zzBAHaS7PqAAKVEgACXApYU2sAAQpG9exZAAE2BA"},
-                        {"file_id": "BQACAgQAAxkBAAIDp2hZvz4Y4k3rJt3UwLHhddHJlvAxAAJPEQACZN1pUl9imsaX-f3iNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDqGhZvz7WBCjkIthsHYcyi0JkYZ8pAAIpFwACPk_wUy5S5NMvtF2UNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDqWhZvz5kiwFlE78z00Mq5BPozVyiAAIqFwACPk_wU893uNWNjOMMNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDqmhZvz58L1t5_aotS_PJ4p3LkRrdAAJAFwACbhBxUfOCYFBGjhvvNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDq2hZvz6-FsZZtQmAKSWxj6_BmguPAALuGQAC7hJhUeBSw-YGhSefNgQ"}
-                    ]
+                    "files": []
                 }
             ]
-        }
-    }
- },
-               "4 year": {  # old "3 year"
+        },
+        "4 year": {  # old "3 year"
             # Add courses here as needed
         }
     }

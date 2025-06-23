@@ -287,8 +287,15 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
         except Exception as e:
             logger.warning(f"Failed to delete menu message: {e}")
-        # Generalized: send all files at once for both Calculus for Economics and Accounting 1
-        if course["name"] in ["Calculus for Economics", "Accounting 1"] and len(files) >= 2 and all("file_id" in f for f in files):
+
+        # Send course name first
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=f"📚 {course['name']}"
+        )
+
+        # Send all files if available
+        if files:
             for f in files:
                 file_id = f.get("file_id")
                 if file_id:
@@ -297,66 +304,23 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         document=file_id,
                         protect_content=True
                     )
-            markup = make_centered_big_buttons([], back_callback=f"semester|{field}|{year}|{semester}")
+        else:
             await context.bot.send_message(
                 chat_id=query.message.chat_id,
-                text="Choose what to do next:",
-                reply_markup=markup
+                text="No files available for this course."
             )
-            return
-        else:
-            if files:
-                file_rows = [
-                    (f.get("title", "File"), f"file|{field}|{year}|{semester}|{idx}|{fidx}")
-                    for fidx, f in enumerate(files)
-                ]
-                markup = make_centered_big_buttons(file_rows, back_callback=f"semester|{field}|{year}|{semester}")
-                text = f"Choose a file for {course['name']}:"
-                await context.bot.send_message(
-                    chat_id=query.message.chat_id,
-                    text=text,
-                    reply_markup=markup
-                )
-            else:
-                markup = make_centered_big_buttons([], back_callback=f"semester|{field}|{year}|{semester}")
-                await context.bot.send_message(
-                    chat_id=query.message.chat_id,
-                    text="No files available for this course.",
-                    reply_markup=markup
-                )
 
-    elif data[0] == "file":
-        field, year, semester, idx, fidx = data[1], data[2], data[3], int(data[4]), int(data[5])
-        course = courses.get(field, {}).get(year, {}).get(semester, [])[idx]
-        file = course.get("files", [])[fidx]
-        file_id = file.get("file_id")
-        url = file.get("url")
-        try:
-            await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
-        except Exception as e:
-            logger.warning(f"Failed to delete menu message: {e}")
-        if file_id:
-            await context.bot.send_document(
-                chat_id=query.message.chat_id,
-                document=file_id,
-                protect_content=True
-            )
-        elif url:
-            await context.bot.send_message(
-                chat_id=query.message.chat_id,
-                text=f"{file.get('title', '')}: {url}"
-            )
-        else:
-            await context.bot.send_message(
-                chat_id=query.message.chat_id,
-                text="Sorry, this file is not available."
-            )
-        markup = make_centered_big_buttons([], back_callback=f"course|{field}|{year}|{semester}|{idx}")
+        # Show only the back button
+        markup = make_centered_big_buttons([], back_callback=f"semester|{field}|{year}|{semester}")
         await context.bot.send_message(
             chat_id=query.message.chat_id,
             text="Choose what to do next:",
             reply_markup=markup
         )
+
+    elif data[0] == "file":
+        # This branch will not be used anymore, but you may want to keep for backward compatibility.
+        pass
 
     elif data[0] == "back_to_main":
         try:

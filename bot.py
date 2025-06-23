@@ -39,7 +39,7 @@ MAIN_FIELDS = [
     "Economics", "Gender", "Psychology", "Accounting", "Managment",
     "PADM", "Sociology", "Journalism", "Hotel & Tourism Management"
 ]
-YEARS = ["2 year", "3 year", "4 year"]  # changed here
+YEARS = ["2 year", "3 year", "4 year"]
 SEMESTERS = ["1 semester", "2 semester"]
 
 def is_same_message(message, new_text, new_reply_markup):
@@ -55,7 +55,7 @@ def make_centered_big_buttons(rows, back_callback=None):
 
 courses = {
     "Economics": {
-        "2 year": {  # old "1 year"
+        "2 year": {
             "1 semester": [
                 {
                     "name": "Calculus for Economics",
@@ -182,7 +182,7 @@ courses = {
                 }
             ]
         },
-        "3 year": {  # old "2 year"
+        "3 year": {
             "1 semester": [
                 {
                     "name": "Mathematical Economics",
@@ -212,10 +212,28 @@ courses = {
                     "name": "International Economics 1",
                     "files": []
                 }
+            ],
+            "2 semester": [
+                {"name": "Development economics 2", "files": []},
+                {"name": "International economics 2", "files": []},
+                {"name": "Econometrics 2", "files": []},
+                {"name": "Research method for economics", "files": []},
+                {"name": "Natural resources and environmental economics", "files": []},
+                {"name": "Economics of industry", "files": []}
             ]
         },
-        "4 year": {  # old "3 year"
-            # Add courses here as needed
+        "4 year": {
+            "1 semester": [
+                {"name": "Development planning and project analysis 1", "files": []},
+                {"name": "Statistical software application in economics", "files": []},
+                {"name": "History of economic thought", "files": []},
+                {"name": "Economics of agriculture", "files": []},
+                {"name": "Introduction to institutional and behavioral economics", "files": []},
+                {"name": "Monetary economics", "files": []}
+            ],
+            "2 semester": [
+                # Add courses for 4 year 2 semester here later
+            ]
         }
     }
 }

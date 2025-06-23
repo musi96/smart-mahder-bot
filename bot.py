@@ -249,7 +249,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
         except Exception as e:
             logger.warning(f"Failed to delete menu message: {e}")
-        if course["name"] == "Calculus for Economics" and len(files) == 2 and all("file_id" in f for f in files):
+        # Generalized: send all files at once for both Calculus for Economics and Accounting 1
+        if course["name"] in ["Calculus for Economics", "Accounting 1"] and len(files) >= 2 and all("file_id" in f for f in files):
             for f in files:
                 file_id = f.get("file_id")
                 if file_id:

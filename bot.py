@@ -396,12 +396,56 @@ courses = {
         },
         "4 year": {
             "1 semester": [
-                {"name": "Development planning and project analysis 1", "files": []},
-                {"name": "Statistical software application in economics", "files": []},
-                {"name": "History of economic thought", "files": []},
-                {"name": "Economics of agriculture", "files": []},
-                {"name": "Introduction to institutional and behavioral economics", "files": []},
-                {"name": "Monetary economics", "files": []}
+                {
+                    "name": "Development planning and project analysis 1",
+                    "files": [
+                        {"file_id": "BQACAgQAAxkBAAIEpGhZ1_Wo2a-NjkQRJO8xMIPrLGXNAAJgGAACXNZRUnJNiMgdTibjNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEpWhZ1_UQuZRnvStKhesEeAInFt8iAAJhGAACXNZRUr8saqf1zVMkNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEpmhZ1_UZgjboDsdqUBgvGOqt2uj6AAJ3FwACGl6wUs5BqDUDGKbxNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEp2hZ1_VswR16AuRGYWT0TjBsEhP4AAIcGAACruQgU-xQ0-YtHHkWNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEqGhZ1_X84U4DCedYzzAc64uAdQOVAAIUEgAC6ev4UkPRlK78T-i7NgQ"}
+                    ]
+                },
+                {
+                    "name": "Statistical software application in economics",
+                    "files": [
+                        {"file_id": "BQACAgQAAxkBAAIEsGhZ2Em9TCaFHAIOhVZTQNAdm1u6AAIBFwAC4wzRUvVaHNBApDA5NgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEsWhZ2EmdqvlYz9s2xl4p9ftXbvCMAAIGFwAC4wzRUpWV6sVI3b-LNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEsmhZ2El2AAHu_fWLYCCbxmDwDLpyRwACrBgAAg5u-FDwD1TvfoDB3zYE"}
+                    ]
+                },
+                {
+                    "name": "History of economic thought",
+                    "files": [
+                        {"file_id": "BQACAgQAAxkBAAIEtmhZ2IgoHzUtgE1YAuBtl9AP31m2AAK_EwACOtSAUlYeqsHvfYAnNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEt2hZ2Ii5yl166XjtklyVPiN1wQvrAALBEwACOtSAUiu_sZpQwJAzNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEuGhZ2Ii1tbx8l8xLXAVi2NHFi23yAALAEwACOtSAUtNIYHP-SxdjNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEuWhZ2IgC71LJ0mrf3R9o09UvaBi1AAMXAALjDNFS1BgAAUYY5egFNgQ"}
+                    ]
+                },
+                {
+                    "name": "Economics of agriculture",
+                    "files": [
+                        {"file_id": "BQACAgQAAxkBAAIEvmhZ2PUnxumUAAGsmzXN6WQ-tMxQegACKBUAAjv8sVIa5yjHPmGrWDYE"},
+                        {"file_id": "BQACAgQAAxkBAAIEv2hZ2PXGV7SU2BJsph1FjDBsGsNRAAIIGAACLy7BUs_b6LT2uhShNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEwGhZ2PUZ5paKH-HyiVcGMZcqO_yfAAJuFgACgZ-BUAvbI3-HuKLaNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEwWhZ2PXUjUndR4Cv7sMj2NwHKUg4AAJvFgACgZ-BUJO8rUKWZ6SXNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEwmhZ2PWVPdbeWPzcwB5xdTxfM2JeAAL0GQACk1roUr8hyYmbxYbzNgQ"}
+                    ]
+                },
+                {
+                    "name": "Introduction to institutional and behavioral economics",
+                    "files": [
+                        {"file_id": "BQACAgQAAxkBAAIEzGhZ2TrHrzIIGywCYuZyCZaXrEw0AAKfFAACbKXIUDtcT0eR5OQ2NgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEzWhZ2TqSKRxIPJH2Z5i5i0NE7Fq8AAKEGgAC0rEhUGwDjHYuerpVNgQ"}
+                    ]
+                },
+                {
+                    "name": "Monetary economics",
+                    "files": [
+                        {"file_id": "BQACAgQAAxkBAAIE0GhZ2Xt5mh9hWnHXpc6wXfJYXD7QAAKREwACMGCAUuq94MUfuin9NgQ"}
+                    ]
+                }
             ],
             "2 semester": [
                 # Add courses for 4 year 2 semester here later

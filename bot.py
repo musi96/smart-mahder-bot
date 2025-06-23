@@ -48,7 +48,6 @@ def is_same_message(message, new_text, new_reply_markup):
     return (current_text == (new_text or "")) and (current_markup == new_reply_markup)
 
 def make_centered_big_buttons(rows, back_callback=None):
-    # 1 button per row, visually "bigger" with EM SPACE for width
     keyboard = [[InlineKeyboardButton(f"        {text}        ", callback_data=callback)] for text, callback in rows]
     if back_callback:
         keyboard.append([InlineKeyboardButton("        🔙 Back        ", callback_data=back_callback)])
@@ -294,7 +293,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=f"📚 {course['name']}"
         )
 
-        # Send all files if available
+        # Send all files as protected_content (prevents forwarding/saving to gallery, but not download)
         if files:
             for f in files:
                 file_id = f.get("file_id")
@@ -319,7 +318,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif data[0] == "file":
-        # This branch will not be used anymore, but you may want to keep for backward compatibility.
         pass
 
     elif data[0] == "back_to_main":
@@ -357,7 +355,5 @@ def main():
         logger.error(f"An unexpected error occurred: {e}")
 
 if __name__ == "__main__":
-    # Start the Flask webserver in a thread, so Render "sees" a port and keeps your service alive
     threading.Thread(target=run_web, daemon=True).start()
-    # Now start your Telegram bot as usual
     main()

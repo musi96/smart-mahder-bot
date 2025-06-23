@@ -16,7 +16,20 @@ import os
 import asyncio
 from telegram.error import Conflict
 
-# You do NOT need aiohttp/web server for polling mode on Render as a Background Worker.
+# --- Flask Web Server for Render Port Requirement ---
+from flask import Flask
+import threading
+
+app = Flask(__name__)
+
+@app.route("/")
+def health():
+    return "OK", 200
+
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+# ---------------------------------------------------
 
 BOT_TOKEN = "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY"
 CHANNEL_USERNAME = "sample_123456"  # No @
@@ -355,4 +368,7 @@ def main():
         logger.error(f"An unexpected error occurred: {e}")
 
 if __name__ == "__main__":
+    # Start the Flask webserver in a thread, so Render "sees" a port and keeps your service alive
+    threading.Thread(target=run_web, daemon=True).start()
+    # Now start your Telegram bot as usual
     main()

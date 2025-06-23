@@ -317,12 +317,81 @@ courses = {
                 }
             ],
             "2 semester": [
-                {"name": "Development economics 2", "files": []},
-                {"name": "International economics 2", "files": []},
-                {"name": "Econometrics 2", "files": []},
-                {"name": "Research method for economics", "files": []},
-                {"name": "Natural resources and environmental economics", "files": []},
-                {"name": "Economics of industry", "files": []}
+                {
+                    "name": "Development economics 2",
+                    "files": [
+                        {"file_id": "BQACAgQAAxkBAAIEEmhZ0GOSJyU0XYCcmV8fNArVsRUVAAJcGAACJ9_5UuanxdZp6feHNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEE2hZ0GOMwhwvzl-drgqxFt_QZlXSAALaFwACky3BU5xTF8DpWESLNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEFGhZ0GNRsC3rWbQ4fcZvXMTJmGDrAALbFwACky3BU2QlWxFJaEO-NgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEFWhZ0GMJ24-z-JMG2WhNJ-oW7-lqAALcFwACky3BU84v-FFtz1-iNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEFmhZ0GM8RuJonlaYjepMsEt0LORhAALdFwACky3BU51-ZIFE_4I3NgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEF2hZ0GMdkexatNVOMsIyl9yx5RpKAALeFwACky3BU440OKj3vV1YNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEGGhZ0GNKl-lR40c5dsI2OsaCZ_GoAALfFwACky3BU8HxwETSFzpKNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEGWhZ0GNtxl-8SeR-qcT5LzTg5JSqAALhFwACky3BU-llX93ImwMXNgQ"}
+                    ]
+                },
+                {
+                    "name": "International economics 2",
+                    "files": [
+                        {"file_id": "BQACAgQAAxkBAAIEImhZ0P_85VBP3K0cYWXpuHU8-e9HAALvFQACczUoU2IiKQABH2PGqjYE"},
+                        {"file_id": "BQACAgQAAxkBAAIEI2hZ0P-ohQKPqbMiEq_MP2bSWceOAALwFQACczUoU9NJZkzJ_jElNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEJGhZ0P-CZ4dvWjJK1FhJnY_knoEmAALxFQACczUoU--BTBKKBIPVNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEJWhZ0P85mxcS_L1qx2klAxHIwITkAALyFQACczUoU8pUrcNYNESENgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEJmhZ0P-TzRX3TsWCLxTQFB3j22LcAAJDGAAC4Hl4U2ilIxqNmc6YNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEJ2hZ0P_3NjMdJvO0HGe8-ZrtIog6AAJEGAAC4Hl4U6Tue9BAFNl8NgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEKGhZ0P_k-SRJtRfgcLag7RkeO5KQAAIvFgACfq_JU-xjviIjR5NFNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEKmhZ0P9LIDvC1_o3HKj_ZpSI7gaVAAISGwACnOyxUKEpUUvYP19XNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEK2hZ0P9OqQ0HfiwQNAyPr0DwExl0AAIEFwAC91mhUWxtfCR5GupoNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIELGhZ0P9WezYlgwUy1vTr5k7oUG0pAAIdHAACC34hUbS4QDsvH5dCNgQ"}
+                    ]
+                },
+                {
+                    "name": "Econometrics 2",
+                    "files": [
+                        {"file_id": "BQACAgQAAxkBAAIEOGhZ0Vfk96NFgucJCLtA1v_qGlFCAAKHFwACt33ZU2XyWX-pMQu-NgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEOWhZ0Vc9dGpe835LWRASWt9z6qwWAAL3FgACZjvZUyFsBZadPkGSNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEOmhZ0Vc_47oLRFMoOXY-MPc_4O4lAAKbFwACt33ZU37kdW8nP7SuNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEO2hZ0Vfqe9sH0DyJLQwCEEzCz06uAALpGAAC1T5wUoc1TopMk_yCNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEPGhZ0Vf40ikZ_jlDzI07pykR4NznAALqGAAC1T5wUo_STSvEwVLfNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEPmhZ0Vf8KhsH3fvdgNmFDUmTAlkDAAImGQACXsXpUG74TtoHUuIzNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEP2hZ0VfCfsswPt5UbXgswu9btj3aAAIWFgACanQ4UUqZibhXgGcNNgQ"}
+                    ]
+                },
+                {
+                    "name": "Research method for economics",
+                    "files": [
+                        {"file_id": "BQACAgQAAxkBAAIESGhZ0bhzpk_6pBMWWCnhavLYK_-XAAJ4FAACNzogU3KOdDtzkldcNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIESWhZ0bg1Pous6gSFbi2sjRHIUXH9AAJ5FAACNzogUxgqWk7KriWDNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIESmhZ0bg9FD9mxaxFVqRA52im_7ZcAAJ6FAACNzogU8J8hjHa9he9NgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIES2hZ0biDQJf3x9hXYqHem7hgPby1AAJ7FAACNzogU5JwWhWGC0HNNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIETGhZ0bjbZ22yB3E8ZJGqOQindmDlAAJ8FAACNzogU392d0k98TjVNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIETWhZ0bgQNoq66HKYfH0coRKzZs8YAAJ9FAACNzogU_HrvKt56DYyNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIETmhZ0bgXD5TUoEN65Mj7AR7fwKQUAAL4GAACZfaYUUUxhMfLi5WxNgQ"}
+                    ]
+                },
+                {
+                    "name": "Natural resources and environmental economics",
+                    "files": [
+                        {"file_id": "BQACAgQAAxkBAAIEVmhZ0h2OzIk-9x5OR7k1v6SiN1XcAALCFQACRDYpU_vG22trf22yNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEV2hZ0h3VOjrYxjnwuHfNbRe4rs1uAALDFQACRDYpU8eZq2l0JjoLNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEWGhZ0h0N8P1nsCkeegYcAVS6DSCqAALFFQACRDYpU_J3m5L5GXKLNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEWWhZ0h3bdAVH4kyW_nRoROmkgzcEAAKkFwACMn0xU9xRBIIQO3FUNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEWmhZ0h3xkJhzfwKBMVk0wpYOXdMGAAJHFwACsGRQUzXY14iMxYYqNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEW2hZ0h04tFiV8h6uuqmI60nWy4w1AAIbDwAC7WypUlegWqRv0Vw_NgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEXGhZ0h1207ztHtDfPJfozuZs4zdnAAKpGwACr_moU3xpOfPqZ-y_NgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEXWhZ0h2syRUPQbP2Ej46QAaBKBChAAJWHAAC41_oUCC4Q3OkBj9xNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEXmhZ0h1LAnmvtSc4hTvRQpEtpBEBAALIFgACSLwQUUdwiJI03_1ZNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEX2hZ0h1jWOq4AqWSTz0hJ86sZe3DAAIfGwACNT4wUc3uvHrA4Z-qNgQ"}
+                    ]
+                },
+                {
+                    "name": "Economics of industry",
+                    "files": [
+                        {"file_id": "BQACAgQAAxkBAAIEW2hZ0h04tFiV8h6uuqmI60nWy4w1AAIbDwAC7WypUlegWqRv0Vw_NgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEa2hZ0nCGKcgznf8fyWjPTRo_q55cAAJzEwACbQVgUwfYj8cwYLlONgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIEbGhZ0nAaIsJ03bMLUeBEh6ZoJgz_AAJOFwACksVBUYxahYGArijQNgQ"}
+                    ]
+                }
             ]
         },
         "4 year": {

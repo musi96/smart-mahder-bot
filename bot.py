@@ -39,7 +39,7 @@ MAIN_FIELDS = [
     "Economics", "Gender", "Psychology", "Accounting", "Managment",
     "PADM", "Sociology", "Journalism", "Hotel & Tourism Management"
 ]
-YEARS = ["1 year", "2 year", "3 year"]
+YEARS = ["2 year", "3 year", "4 year"]  # changed here
 SEMESTERS = ["1 semester", "2 semester"]
 
 def is_same_message(message, new_text, new_reply_markup):
@@ -55,7 +55,7 @@ def make_centered_big_buttons(rows, back_callback=None):
 
 courses = {
     "Economics": {
-        "1 year": {
+        "2 year": {  # old "1 year"
             "1 semester": [
                 {
                     "name": "Calculus for Economics",
@@ -149,7 +149,7 @@ courses = {
                 }
             ]
         },
-        "2 year": {
+        "3 year": {  # old "2 year"
             "1 semester": [
                 {
                     "name": "Mathematical Economics",
@@ -180,6 +180,9 @@ courses = {
                     "files": []
                 }
             ]
+        },
+        "4 year": {  # old "3 year"
+            # Add courses here as needed
         }
     }
 }

@@ -47,10 +47,22 @@ def is_same_message(message, new_text, new_reply_markup):
     current_markup = message.reply_markup
     return (current_text == (new_text or "")) and (current_markup == new_reply_markup)
 
-def make_centered_big_buttons(rows, back_callback=None):
-    keyboard = [[InlineKeyboardButton(f"        {text}        ", callback_data=callback)] for text, callback in rows]
+# Updated make_centered_big_buttons to handle text overflow and blank buttons
+def make_centered_big_buttons(rows, back_callback=None, max_length=25):
+    keyboard = []
+    for text, callback in rows:
+        display_text = text
+        if not text.strip():
+            display_text = "Coming soon!"
+            callback = "coming_soon"
+        else:
+            # Truncate text if too long, but keep readable
+            if len(text) > max_length:
+                display_text = text[:max_length - 2] + "…"
+        # Add more spaces for better visibility (remove excessive unicode spaces)
+        keyboard.append([InlineKeyboardButton(f"{display_text}", callback_data=callback)])
     if back_callback:
-        keyboard.append([InlineKeyboardButton("        🔙 Back        ", callback_data=back_callback)])
+        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=back_callback)])
     return InlineKeyboardMarkup(keyboard)
 
 courses = {
@@ -513,6 +525,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return
 
+    # If "coming soon" was pressed, just show a notice and do nothing more
+    if query.data == "coming_soon":
+        await query.answer("Coming soon!", show_alert=True)
+        return
+
     data = query.data.split("|")
     if data[0] == "field":
         field = data[1]
@@ -533,7 +550,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data[0] == "select_year":
         field, year = data[1], data[2]
         semesters = list(courses.get(field, {}).get(year, {}).keys())
-        sem_rows = [(sem, f"semester|{field}|{year}|{sem}") for sem in semesters]
+        # Add a blank ("") semester if list is empty to show "Coming soon!"
+        if not semesters:
+            sem_rows = [("", "")]
+        else:
+            sem_rows = [(sem, f"semester|{field}|{year}|{sem}") for sem in semesters]
         markup = make_centered_big_buttons(sem_rows, back_callback=f"field|{field}")
         text = f"Select semester for {field} - {year}:"
         if not is_same_message(query.message, text, markup):
@@ -542,7 +563,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data[0] == "semester":
         field, year, semester = data[1], data[2], data[3]
         course_list = courses.get(field, {}).get(year, {}).get(semester, [])
-        course_rows = [(course["name"], f"course|{field}|{year}|{semester}|{idx}") for idx, course in enumerate(course_list)]
+        # If there are no courses, show a "Coming soon!" button
+        if not course_list:
+            course_rows = [("", "")]
+        else:
+            course_rows = [(course["name"], f"course|{field}|{year}|{semester}|{idx}") for idx, course in enumerate(course_list)]
         markup = make_centered_big_buttons(course_rows, back_callback=f"select_year|{field}|{year}")
         text = f"Select course for {field} - {year} - {semester}:"
         if not is_same_message(query.message, text, markup):
@@ -627,3 +652,4 @@ def main():
 if __name__ == "__main__":
     threading.Thread(target=run_web, daemon=True).start()
     main()
+    

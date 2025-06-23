@@ -16,23 +16,9 @@ import os
 import asyncio
 from telegram.error import Conflict
 
-from aiohttp import web
+# You do NOT need aiohttp/web server for polling mode on Render as a Background Worker.
 
-async def handle(request):
-    return web.Response(text="Bot is running!")
-
-def start_web_server():
-    port = int(os.environ.get("PORT", 8080))
-    app = web.Application()
-    app.router.add_get("/", handle)
-    runner = web.AppRunner(app)
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(runner.setup())
-    site = web.TCPSite(runner, "0.0.0.0", port)
-    loop.run_until_complete(site.start())
-    print(f"Dummy web server running on port {port}")
-
-BOT_TOKEN = os.getenv("BOT_TOKEN", "PASTE_YOUR_BOT_TOKEN_HERE")
+BOT_TOKEN = "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY"
 CHANNEL_USERNAME = "sample_123456"  # No @
 CHANNEL_ID = -1002659845054
 
@@ -40,7 +26,6 @@ MAIN_FIELDS = [
     "Economics", "Gender", "Psychology", "Accounting", "Managment",
     "PADM", "Sociology", "Journalism", "Hotel & Tourism Management"
 ]
-# Remove "Questions" from YEARS
 YEARS = ["1 year", "2 year", "3 year"]
 SEMESTERS = ["1 semester", "2 semester"]
 
@@ -50,11 +35,8 @@ def is_same_message(message, new_text, new_reply_markup):
     return (current_text == (new_text or "")) and (current_markup == new_reply_markup)
 
 def make_centered_big_buttons(rows, back_callback=None):
-    """
-    Make each button fill the row (1 button per row, centered).
-    Adds a lot of whitespace to button text to visually make it "bigger" (200% effect).
-    """
-    keyboard = [[InlineKeyboardButton(f"        {text}        ", callback_data=callback)] for text, callback in rows]  # U+2003 EM SPACE for more width
+    # 1 button per row, visually "bigger" with EM SPACE for width
+    keyboard = [[InlineKeyboardButton(f"        {text}        ", callback_data=callback)] for text, callback in rows]
     if back_callback:
         keyboard.append([InlineKeyboardButton("        🔙 Back        ", callback_data=back_callback)])
     return InlineKeyboardMarkup(keyboard)
@@ -73,7 +55,15 @@ courses = {
                 {
                     "name": "Accounting 1",
                     "files": [
-                        {"title": "Textbook", "file_id": "PASTE_REAL_FILE_ID_3"}
+                        {"file_id": "BQACAgQAAxkBAAIBD2hZBmDMyIH9XkQhmXxeypNkYLkMAALgFgACAvDIUtsihO9VRhHeNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIBEGhZBmDxZAPjdNnJ6T91cW6qs3qzAALhFgACAvDIUoM_a7ntjMW3NgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIBEWhZBmBFNDzyCgdcqXUkVEYrwhdBAALiFgACAvDIUtMv-EeSTSoPNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIBEmhZBmDmiuOlJnIwF5oXC6seoAABHgAC4xYAAgLwyFK6NIdjWRBqgTYE"},
+                        {"file_id": "BQACAgQAAxkBAAIBE2hZBmD0eV7kBJAfQDWeyIF7WrDBAALkFgACAvDIUn-VROTRFzCTNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIBFGhZBmBxJATDi9CSGtc41IC_2MBWAALlFgACAvDIUr1Lc8-h9dUpNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIBFWhZBmBxTaKe-jK-0g964Z2mCqoGAALmFgACAvDIUlOksdz9ddQdNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIBFmhZBmBvjH6sYYrsGzILz0CNBGAEAALnFgACAvDIUizGebp3PbgNNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIBF2hZBmCvvdQ2c_JSPGmNInO5zvn1AALoFgACAvDIUhX9FL6SQ9gyNgQ"}
                     ]
                 },
                 {
@@ -255,7 +245,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         field, year, semester, idx = data[1], data[2], data[3], int(data[4])
         course = courses.get(field, {}).get(year, {}).get(semester, [])[idx]
         files = course.get("files", [])
-        # Always delete the menu message above before sending files
         try:
             await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
         except Exception as e:
@@ -331,7 +320,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif data[0] == "back_to_main":
-        # On back, delete the select year message and only show the select field menu
         try:
             await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
         except Exception as e:
@@ -354,7 +342,6 @@ async def doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     try:
-        start_web_server()
         app = ApplicationBuilder().token(BOT_TOKEN).build()
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CallbackQueryHandler(button))

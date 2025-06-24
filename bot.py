@@ -32,7 +32,7 @@ def run_web():
 # ---------------------------------------------------
 
 BOT_TOKEN = "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY"
-CHANNEL_USERNAME = "@HUESAchannel"  # No @
+CHANNEL_USERNAME = "HUESAchannel"  # No @
 CHANNEL_ID = -1002040479523
 
 MAIN_FIELDS = [

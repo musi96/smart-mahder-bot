@@ -32,8 +32,8 @@ def run_web():
 # ---------------------------------------------------
 
 BOT_TOKEN = "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY"
-CHANNEL_USERNAME = "sample_123456"  # No @
-CHANNEL_ID = -1002659845054
+CHANNEL_USERNAME = "@HUESAchannel"  # No @
+CHANNEL_ID = -1002040479523
 
 MAIN_FIELDS = [
     "Economics", "Gender", "Psychology", "Accounting", "Managment",

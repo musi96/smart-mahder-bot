@@ -12,8 +12,8 @@ from telegram.ext import (
 
 # Bot configuration
 BOT_TOKEN = "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY"
-CHANNEL_USERNAME = "@sample_123456"
-CHANNEL_ID = -1002659845054  # Channel ID must be negative
+CHANNEL_USERNAME = "@HUESAchannel"
+CHANNEL_ID = -1002040479523  # Channel ID must be negative
 
 # Define subjects and options
 SUBJECTS = [

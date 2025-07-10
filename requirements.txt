@@ -1,9 +1,4 @@
-(cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF'
-diff --git a/requirements.txt b/requirements.txt
---- a/requirements.txt
-+++ b/requirements.txt
-@@ -1,4 +1,11 @@
--python-telegram-bot==20.3
+python-telegram-bot==20.3
 -Flask==3.0.2
 -python-telegram-bot
 -aiohttp
@@ -17,6 +12,3 @@ diff --git a/requirements.txt b/requirements.txt
 +python-pptx==0.6.21
 +reportlab==4.0.4
 +Pillow==10.0.0
-+
-EOF
-)

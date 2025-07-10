@@ -1,3 +1,4 @@
+(cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF'
 diff --git a/README.md b/README.md
 --- a/README.md
 +++ b/README.md
@@ -263,3 +264,5 @@ diff --git a/README.md b/README.md
 +**Built with ❤️ for HUESA Students**
 +
 +*Empowering education through technology* 🎓✨
+EOF
+)

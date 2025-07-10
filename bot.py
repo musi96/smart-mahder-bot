@@ -47,8 +47,8 @@ def is_same_message(message, new_text, new_reply_markup):
     current_markup = message.reply_markup
     return (current_text == (new_text or "")) and (current_markup == new_reply_markup)
 
-# Updated make_centered_big_buttons to handle text overflow and blank buttons
-def make_centered_big_buttons(rows, back_callback=None, max_length=50):
+# Updated make_centered_big_buttons to handle text overflow, blank buttons, and improved left-corner positioning
+def make_centered_big_buttons(rows, back_callback=None, max_length=50, include_feedback=False):
     keyboard = []
     for text, callback in rows:
         display_text = text
@@ -59,10 +59,19 @@ def make_centered_big_buttons(rows, back_callback=None, max_length=50):
             # Truncate text if too long, but keep readable
             if len(text) > max_length:
                 display_text = text[:max_length - 4] + "…"
-        # Add more spaces for better visibility (remove excessive unicode spaces)
-        keyboard.append([InlineKeyboardButton(f"{display_text}", callback_data=callback)])
+        # Create buttons with left alignment for better fit
+        keyboard.append([InlineKeyboardButton(f"📋 {display_text}", callback_data=callback)])
+    
+    # Add navigation and feedback buttons in a separate row for better corner positioning
+    bottom_row = []
     if back_callback:
-        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=back_callback)])
+        bottom_row.append(InlineKeyboardButton("🔙 Back", callback_data=back_callback))
+    if include_feedback:
+        bottom_row.append(InlineKeyboardButton("💬 Feedback", callback_data="request_feedback"))
+    
+    if bottom_row:
+        keyboard.append(bottom_row)
+    
     return InlineKeyboardMarkup(keyboard)
 
 courses = {
@@ -492,7 +501,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return
     field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
-    await update.message.reply_text("Select your field:", reply_markup=make_centered_big_buttons(field_rows))
+    await update.message.reply_text("Select your field:", reply_markup=make_centered_big_buttons(field_rows, include_feedback=True))
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -513,7 +522,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             return
         field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
-        markup = make_centered_big_buttons(field_rows)
+        markup = make_centered_big_buttons(field_rows, include_feedback=True)
         if not is_same_message(query.message, "Select your field:", markup):
             await query.edit_message_text("Select your field:", reply_markup=markup)
         return
@@ -528,6 +537,20 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # If "coming soon" was pressed, just show a notice and do nothing more
     if query.data == "coming_soon":
         await query.answer("Coming soon!", show_alert=True)
+        return
+    
+    # Handle feedback request
+    if query.data == "request_feedback":
+        await query.answer()
+        await query.edit_message_text(
+            "📝 Please send your feedback message. We value your input!\n\n"
+            "Type your feedback and send it as a regular message.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_to_main")
+            ]])
+        )
+        # Store feedback state in user context
+        context.user_data['awaiting_feedback'] = True
         return
 
     data = query.data.split("|")
@@ -621,7 +644,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.warning(f"Failed to delete select year message: {e}")
         field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
-        markup = make_centered_big_buttons(field_rows)
+        markup = make_centered_big_buttons(field_rows, include_feedback=True)
         await context.bot.send_message(
             chat_id=query.message.chat_id,
             text="Select your field:",
@@ -636,11 +659,41 @@ async def doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Received! file_id printed to console:\n{file_id}"
         )
 
+async def feedback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Check if user is awaiting feedback
+    if context.user_data.get('awaiting_feedback', False):
+        # Clear the feedback state
+        context.user_data['awaiting_feedback'] = False
+        
+        # Get the feedback message
+        feedback_text = update.message.text
+        user = update.effective_user
+        
+        # Log feedback (you can also send it to admins, save to database, etc.)
+        logger.info(f"Feedback received from {user.first_name} (ID: {user.id}): {feedback_text}")
+        
+        # Send thank you message
+        await update.message.reply_text(
+            "🙏 **Thank you for your feedback!**\n\n"
+            "We really appreciate you taking the time to share your thoughts with us. "
+            "Your feedback helps us improve our service and provide better resources for students.\n\n"
+            "We'll review your message and work on making things even better! 💪",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("📚 Back to Main Menu", callback_data="back_to_main")
+            ]])
+        )
+        return
+    
+    # If not awaiting feedback, ignore the message or handle other text messages
+    return
+
 def main():
     try:
         app = ApplicationBuilder().token(BOT_TOKEN).build()
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CallbackQueryHandler(button))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, feedback_handler))
         app.add_handler(MessageHandler(filters.Document.ALL, doc_handler))
         logger.info("Bot is running...")
         app.run_polling()

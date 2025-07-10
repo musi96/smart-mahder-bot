@@ -2,10 +2,12 @@ import logging
 import os
 import asyncio
 import threading
+from datetime import datetime
 from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    ForceReply,
 )
 from telegram.ext import (
     ApplicationBuilder,
@@ -14,13 +16,18 @@ from telegram.ext import (
     ContextTypes,
     MessageHandler,
     filters,
+    ConversationHandler,
 )
-from telegram.error import Conflict
+from telegram.error import Conflict, TelegramError
 from flask import Flask
 
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
+
+# Import our custom modules
+from database import Database
+from ai_helper import AIHelper
 
 # --- Flask Web Server for Render Port Requirement ---
 app = Flask(__name__)
@@ -38,6 +45,8 @@ def run_web():
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")  # No @
 CHANNEL_ID = int(os.getenv("CHANNEL_ID")) if os.getenv("CHANNEL_ID") else None
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ADMIN_USER_IDS = [int(x.strip()) for x in os.getenv("ADMIN_USER_IDS", "").split(",") if x.strip()]
 
 # Validate required environment variables
 if not BOT_TOKEN:
@@ -47,6 +56,16 @@ if not CHANNEL_USERNAME:
 if not CHANNEL_ID:
     raise ValueError("CHANNEL_ID environment variable is required")
 
+# Initialize database and AI helper
+db = Database()
+ai_helper = AIHelper()
+
+# Conversation states
+WAITING_FOR_FEEDBACK = 1
+WAITING_FOR_BROADCAST = 2
+WAITING_FOR_QUESTION_TOPIC = 3
+WAITING_FOR_NOTE_TOPIC = 4
+
 MAIN_FIELDS = [
     "Economics", "Gender", "Psychology", "Accounting", "Managment",
     "PADM", "Sociology", "Journalism", "Hotel & Tourism Management"
@@ -54,27 +73,52 @@ MAIN_FIELDS = [
 YEARS = ["2 year", "3 year", "4 year"]
 SEMESTERS = ["1 semester", "2 semester"]
 
+# Helper functions
+def is_admin(user_id: int) -> bool:
+    """Check if user is an admin."""
+    return user_id in ADMIN_USER_IDS
+
 def is_same_message(message, new_text, new_reply_markup):
     current_text = message.text or ""
     current_markup = message.reply_markup
     return (current_text == (new_text or "")) and (current_markup == new_reply_markup)
 
-# Updated make_centered_big_buttons to handle text overflow and blank buttons
-def make_centered_big_buttons(rows, back_callback=None, max_length=50):
+def make_buttons(rows, back_callback=None, max_length=50):
+    """Create inline keyboard with buttons."""
     keyboard = []
     for text, callback in rows:
         display_text = text
         if not text.strip():
-            display_text = "Coming soon!"
+            display_text = "🚧 Coming Soon!"
             callback = "coming_soon"
         else:
             # Truncate text if too long, but keep readable
             if len(text) > max_length:
                 display_text = text[:max_length - 4] + "…"
-        # Add more spaces for better visibility (remove excessive unicode spaces)
-        keyboard.append([InlineKeyboardButton(f"{display_text}", callback_data=callback)])
+        keyboard.append([InlineKeyboardButton(display_text, callback_data=callback)])
+    
     if back_callback:
         keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=back_callback)])
+    
+    return InlineKeyboardMarkup(keyboard)
+
+def create_main_menu():
+    """Create the main menu with three primary options."""
+    keyboard = [
+        [InlineKeyboardButton("📚 Educational Materials", callback_data="educational_materials")],
+        [InlineKeyboardButton("🤖 AI Generator", callback_data="ai_generator")],
+        [InlineKeyboardButton("💬 Feedback", callback_data="feedback")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+def create_admin_menu():
+    """Create admin menu with broadcast and stats options."""
+    keyboard = [
+        [InlineKeyboardButton("📊 User Statistics", callback_data="admin_stats")],
+        [InlineKeyboardButton("📢 Broadcast Message", callback_data="admin_broadcast")],
+        [InlineKeyboardButton("� View Recent Feedback", callback_data="admin_feedback")],
+        [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_to_main")]
+    ]
     return InlineKeyboardMarkup(keyboard)
 
 courses = {
@@ -492,24 +536,59 @@ async def is_user_member(user_id, context):
         return False
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    join_button = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
-        [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
-    ])
-    if not await is_user_member(user_id, context):
-        if not is_same_message(update.message, "Please join our channel to access the bot!", join_button):
-            await update.message.reply_text(
-                "Please join our channel to access the bot!", reply_markup=join_button
-            )
+    user = update.effective_user
+    user_id = user.id
+    username = user.username or "No username"
+    first_name = user.first_name or "User"
+    last_name = user.last_name or ""
+    
+    # Add user to database
+    is_member = await is_user_member(user_id, context)
+    db.add_user(user_id, username, first_name, last_name, is_member)
+    
+    if not is_member:
+        join_button = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
+            [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
+        ])
+        await update.message.reply_text(
+            f"Hi {first_name}! 👋\n\n"
+            "🔒 To access all features, please join our channel first:\n\n"
+            f"📢 @{CHANNEL_USERNAME}\n\n"
+            "After joining, use /start again to access the bot features!",
+            reply_markup=join_button
+        )
         return
-    field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
-    await update.message.reply_text("Select your field:", reply_markup=make_centered_big_buttons(field_rows))
+    
+    # Update user activity
+    db.update_user_activity(user_id)
+    
+    welcome_text = (
+        f"📚 Welcome to Smart Mahder Bot, {first_name}! 📚\n\n"
+        "🎓 Your Educational Assistant for HUESA Students\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "What would you like to explore today?\n\n"
+        "📚 **Educational Materials** - Access course materials by field\n"
+        "🤖 **AI Generator** - Generate questions and study notes\n"
+        "💬 **Feedback** - Share your thoughts with us\n\n"
+        f"📧 Contact: @{CHANNEL_USERNAME}"
+    )
+    
+    # Show admin options for admins
+    if is_admin(user_id):
+        welcome_text += "\n\n🔧 **Admin Panel** available - Type /admin"
+    
+    reply_markup = create_main_menu()
+    
+    await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+    
+    # Update user activity in database
+    db.update_user_activity(user_id)
 
     join_button = InlineKeyboardMarkup([
         [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
@@ -524,10 +603,13 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=join_button
                 )
             return
-        field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
-        markup = make_centered_big_buttons(field_rows)
-        if not is_same_message(query.message, "Select your field:", markup):
-            await query.edit_message_text("Select your field:", reply_markup=markup)
+        markup = create_main_menu()
+        welcome_text = (
+            f"🎉 Welcome back! You're now a verified member!\n\n"
+            "What would you like to explore today?"
+        )
+        if not is_same_message(query.message, welcome_text, markup):
+            await query.edit_message_text(welcome_text, reply_markup=markup)
         return
 
     if not await is_user_member(user_id, context):
@@ -537,58 +619,74 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return
 
-    # If "coming soon" was pressed, just show a notice and do nothing more
-    if query.data == "coming_soon":
-        await query.answer("Coming soon!", show_alert=True)
-        return
+    # Handle main menu options
+    if query.data == "educational_materials":
+        field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
+        markup = make_buttons(field_rows, back_callback="back_to_main")
+        text = "📚 **Educational Materials**\n\nSelect your field of study:"
+        await query.edit_message_text(text, reply_markup=markup, parse_mode='Markdown')
+        
+    elif query.data == "ai_generator":
+        keyboard = [
+            [InlineKeyboardButton("❓ Question Generator", callback_data="question_generator")],
+            [InlineKeyboardButton("📝 Note Creator", callback_data="note_creator")],
+            [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_to_main")]
+        ]
+        markup = InlineKeyboardMarkup(keyboard)
+        
+        ai_status = "🟢 AI Features Available" if ai_helper.is_available() else "🔴 AI Features Unavailable"
+        text = f"🤖 **AI Generator**\n\n{ai_status}\n\nChoose what you'd like to generate:"
+        await query.edit_message_text(text, reply_markup=markup, parse_mode='Markdown')
+        
+    elif query.data == "feedback":
+        keyboard = [
+            [InlineKeyboardButton("📝 Send Feedback", callback_data="send_feedback")],
+            [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_to_main")]
+        ]
+        markup = InlineKeyboardMarkup(keyboard)
+        text = ("💬 **Feedback**\n\n"
+                "We value your thoughts! Help us improve the bot by sharing your feedback, "
+                "suggestions, or reporting any issues you encounter.")
+        await query.edit_message_text(text, reply_markup=markup, parse_mode='Markdown')
 
-    data = query.data.split("|")
-    if data[0] == "field":
-        field = data[1]
+    # Handle educational materials flow (existing functionality)
+    elif query.data.startswith("field|"):
+        field = query.data.split("|")[1]
         year_rows = [(year, f"select_year|{field}|{year}") for year in YEARS]
-        markup = make_centered_big_buttons(year_rows, back_callback="back_to_main")
-        text = f"Select year for {field}:"
-        if not is_same_message(query.message, text, markup):
-            await query.edit_message_text(text, reply_markup=markup)
+        markup = make_buttons(year_rows, back_callback="educational_materials")
+        text = f"📚 **{field}**\n\nSelect your year:"
+        await query.edit_message_text(text, reply_markup=markup, parse_mode='Markdown')
 
-    elif data[0] == "year":
-        year = data[1]
-        field_rows = [(field, f"select_year|{field}|{year}") for field in MAIN_FIELDS]
-        markup = make_centered_big_buttons(field_rows, back_callback="back_to_main")
-        text = f"Select field for {year}:"
-        if not is_same_message(query.message, text, markup):
-            await query.edit_message_text(text, reply_markup=markup)
-
-    elif data[0] == "select_year":
-        field, year = data[1], data[2]
+    elif query.data.startswith("select_year|"):
+        parts = query.data.split("|")
+        field, year = parts[1], parts[2]
         semesters = list(courses.get(field, {}).get(year, {}).keys())
-        # Add a blank ("") semester if list is empty to show "Coming soon!"
         if not semesters:
-            sem_rows = [("", "")]
+            sem_rows = [("🚧 Coming Soon!", "coming_soon")]
         else:
             sem_rows = [(sem, f"semester|{field}|{year}|{sem}") for sem in semesters]
-        markup = make_centered_big_buttons(sem_rows, back_callback=f"field|{field}")
-        text = f"Select semester for {field} - {year}:"
-        if not is_same_message(query.message, text, markup):
-            await query.edit_message_text(text, reply_markup=markup)
+        markup = make_buttons(sem_rows, back_callback=f"field|{field}")
+        text = f"📚 **{field} - {year}**\n\nSelect semester:"
+        await query.edit_message_text(text, reply_markup=markup, parse_mode='Markdown')
 
-    elif data[0] == "semester":
-        field, year, semester = data[1], data[2], data[3]
+    elif query.data.startswith("semester|"):
+        parts = query.data.split("|")
+        field, year, semester = parts[1], parts[2], parts[3]
         course_list = courses.get(field, {}).get(year, {}).get(semester, [])
-        # If there are no courses, show a "Coming soon!" button
         if not course_list:
-            course_rows = [("", "")]
+            course_rows = [("🚧 Coming Soon!", "coming_soon")]
         else:
             course_rows = [(course["name"], f"course|{field}|{year}|{semester}|{idx}") for idx, course in enumerate(course_list)]
-        markup = make_centered_big_buttons(course_rows, back_callback=f"select_year|{field}|{year}")
-        text = f"Select course for {field} - {year} - {semester}:"
-        if not is_same_message(query.message, text, markup):
-            await query.edit_message_text(text, reply_markup=markup)
+        markup = make_buttons(course_rows, back_callback=f"select_year|{field}|{year}")
+        text = f"📚 **{field} - {year} - {semester}**\n\nSelect course:"
+        await query.edit_message_text(text, reply_markup=markup, parse_mode='Markdown')
 
-    elif data[0] == "course":
-        field, year, semester, idx = data[1], data[2], data[3], int(data[4])
+    elif query.data.startswith("course|"):
+        parts = query.data.split("|")
+        field, year, semester, idx = parts[1], parts[2], parts[3], int(parts[4])
         course = courses.get(field, {}).get(year, {}).get(semester, [])[idx]
         files = course.get("files", [])
+        
         try:
             await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
         except Exception as e:
@@ -597,10 +695,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Send course name first
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=f"📚 {course['name']}"
+            text=f"📚 **{course['name']}**",
+            parse_mode='Markdown'
         )
 
-        # Send all files as protected_content (prevents forwarding/saving to gallery, but not download)
+        # Send all files as protected_content
         if files:
             for f in files:
                 file_id = f.get("file_id")
@@ -613,32 +712,373 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await context.bot.send_message(
                 chat_id=query.message.chat_id,
-                text="No files available for this course."
+                text="📭 No files available for this course yet."
             )
 
-        # Show only the back button
-        markup = make_centered_big_buttons([], back_callback=f"semester|{field}|{year}|{semester}")
+        # Show navigation buttons
+        keyboard = [
+            [InlineKeyboardButton("🔙 Back to Courses", callback_data=f"semester|{field}|{year}|{semester}")],
+            [InlineKeyboardButton("🏠 Main Menu", callback_data="back_to_main")]
+        ]
+        markup = InlineKeyboardMarkup(keyboard)
         await context.bot.send_message(
             chat_id=query.message.chat_id,
             text="Choose what to do next:",
             reply_markup=markup
         )
 
-    elif data[0] == "file":
-        pass
-
-    elif data[0] == "back_to_main":
-        try:
-            await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
-        except Exception as e:
-            logger.warning(f"Failed to delete select year message: {e}")
-        field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
-        markup = make_centered_big_buttons(field_rows)
-        await context.bot.send_message(
-            chat_id=query.message.chat_id,
-            text="Select your field:",
-            reply_markup=markup
+    # Handle back to main menu
+    elif query.data == "back_to_main":
+        markup = create_main_menu()
+        welcome_text = (
+            "🏠 **Main Menu**\n\n"
+            "What would you like to explore?"
         )
+        await query.edit_message_text(welcome_text, reply_markup=markup, parse_mode='Markdown')
+
+    # Handle coming soon
+    elif query.data == "coming_soon":
+        await query.answer("🚧 Coming Soon! This feature is under development.", show_alert=True)
+
+    # Handle AI Generator features
+    elif query.data == "question_generator":
+        if not ai_helper.is_available():
+            await query.answer("❌ AI features are not available. Please configure OpenAI API key.", show_alert=True)
+            return
+            
+        keyboard = [
+            [InlineKeyboardButton("📝 Multiple Choice", callback_data="gen_questions|multiple_choice")],
+            [InlineKeyboardButton("✍️ Short Answer", callback_data="gen_questions|short_answer")],
+            [InlineKeyboardButton("📜 Essay Questions", callback_data="gen_questions|essay")],
+            [InlineKeyboardButton("✅ True/False", callback_data="gen_questions|true_false")],
+            [InlineKeyboardButton("🔙 Back", callback_data="ai_generator")]
+        ]
+        markup = InlineKeyboardMarkup(keyboard)
+        text = ("❓ **Question Generator**\n\n"
+                "Choose the type of questions you'd like to generate:")
+        await query.edit_message_text(text, reply_markup=markup, parse_mode='Markdown')
+
+    elif query.data == "note_creator":
+        if not ai_helper.is_available():
+            await query.answer("❌ AI features are not available. Please configure OpenAI API key.", show_alert=True)
+            return
+            
+        keyboard = [
+            [InlineKeyboardButton("📋 Summary Notes", callback_data="create_notes|summary")],
+            [InlineKeyboardButton("📑 Detailed Notes", callback_data="create_notes|detailed")],
+            [InlineKeyboardButton("📝 Outline Format", callback_data="create_notes|outline")],
+            [InlineKeyboardButton("🗂️ Flashcards", callback_data="create_notes|flashcards")],
+            [InlineKeyboardButton("🔙 Back", callback_data="ai_generator")]
+        ]
+        markup = InlineKeyboardMarkup(keyboard)
+        text = ("📝 **Note Creator**\n\n"
+                "Choose the format for your study notes:")
+        await query.edit_message_text(text, reply_markup=markup, parse_mode='Markdown')
+
+    elif query.data.startswith("gen_questions|"):
+        question_type = query.data.split("|")[1]
+        context.user_data['question_type'] = question_type
+        context.user_data['waiting_for'] = 'question_topic'
+        
+        await query.edit_message_text(
+            f"❓ **Question Generator - {question_type.replace('_', ' ').title()}**\n\n"
+            "📝 Please enter the topic you'd like questions about:\n\n"
+            "*Example: Microeconomics, Supply and Demand, Market Structures, etc.*",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Cancel", callback_data="question_generator")]])
+        )
+
+    elif query.data.startswith("create_notes|"):
+        note_type = query.data.split("|")[1]
+        context.user_data['note_type'] = note_type
+        context.user_data['waiting_for'] = 'note_topic'
+        
+        await query.edit_message_text(
+            f"📝 **Note Creator - {note_type.replace('_', ' ').title()}**\n\n"
+            "📚 Please enter the topic you'd like notes about:\n\n"
+            "*Example: Economic Theories, Market Analysis, Financial Systems, etc.*",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Cancel", callback_data="note_creator")]])
+        )
+
+    elif query.data == "send_feedback":
+        context.user_data['waiting_for'] = 'feedback'
+        await query.edit_message_text(
+            "💬 **Send Feedback**\n\n"
+            "📝 Please type your feedback, suggestions, or report any issues:\n\n"
+            "*Your feedback helps us improve the bot for everyone!*",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Cancel", callback_data="feedback")]])
+        )
+
+# Message handlers for conversations
+async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle text messages for AI features and feedback."""
+    user_id = update.effective_user.id
+    text = update.message.text
+    
+    # Update user activity
+    db.update_user_activity(user_id)
+    
+    waiting_for = context.user_data.get('waiting_for')
+    
+    if waiting_for == 'question_topic':
+        question_type = context.user_data.get('question_type', 'multiple_choice')
+        
+        # Send "generating" message
+        generating_msg = await update.message.reply_text("🤖 Generating questions... Please wait.")
+        
+        # Generate questions
+        result = await ai_helper.generate_questions(text, question_type, 5)
+        
+        # Delete generating message
+        try:
+            await context.bot.delete_message(chat_id=update.message.chat_id, message_id=generating_msg.message_id)
+        except:
+            pass
+        
+        # Send result
+        await update.message.reply_text(
+            f"❓ **Questions about: {text}**\n\n{result}",
+            parse_mode='Markdown'
+        )
+        
+        # Show options to continue
+        keyboard = [
+            [InlineKeyboardButton("🔄 Generate More", callback_data="question_generator")],
+            [InlineKeyboardButton("🏠 Main Menu", callback_data="back_to_main")]
+        ]
+        await update.message.reply_text(
+            "What would you like to do next?",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        
+        # Clear waiting state
+        context.user_data.clear()
+        
+    elif waiting_for == 'note_topic':
+        note_type = context.user_data.get('note_type', 'summary')
+        
+        # Send "creating" message
+        creating_msg = await update.message.reply_text("📝 Creating notes... Please wait.")
+        
+        # Generate notes
+        result = await ai_helper.create_notes(text, note_type, 'medium')
+        
+        # Delete creating message
+        try:
+            await context.bot.delete_message(chat_id=update.message.chat_id, message_id=creating_msg.message_id)
+        except:
+            pass
+        
+        # Send result
+        await update.message.reply_text(
+            f"📚 **Notes about: {text}**\n\n{result}",
+            parse_mode='Markdown'
+        )
+        
+        # Show options to continue
+        keyboard = [
+            [InlineKeyboardButton("🔄 Create More Notes", callback_data="note_creator")],
+            [InlineKeyboardButton("🏠 Main Menu", callback_data="back_to_main")]
+        ]
+        await update.message.reply_text(
+            "What would you like to do next?",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        
+        # Clear waiting state
+        context.user_data.clear()
+        
+    elif waiting_for == 'feedback':
+        username = update.effective_user.username or "Anonymous"
+        
+        # Save feedback to database
+        success = db.add_feedback(user_id, username, text)
+        
+        if success:
+            await update.message.reply_text(
+                "✅ **Feedback Submitted Successfully!**\n\n"
+                "Thank you for your valuable feedback! We appreciate your input and will use it to improve the bot.",
+                parse_mode='Markdown'
+            )
+            
+            # Notify admins if any
+            if ADMIN_USER_IDS:
+                admin_notification = (
+                    f"📨 **New Feedback Received**\n\n"
+                    f"👤 User: @{username} (ID: {user_id})\n"
+                    f"💬 Message: {text}\n\n"
+                    f"📅 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+                
+                for admin_id in ADMIN_USER_IDS:
+                    try:
+                        await context.bot.send_message(
+                            chat_id=admin_id,
+                            text=admin_notification,
+                            parse_mode='Markdown'
+                        )
+                    except Exception as e:
+                        logger.warning(f"Could not notify admin {admin_id}: {e}")
+        else:
+            await update.message.reply_text(
+                "❌ **Error submitting feedback**\n\n"
+                "Sorry, there was an issue saving your feedback. Please try again later.",
+                parse_mode='Markdown'
+            )
+        
+        # Show main menu
+        keyboard = [
+            [InlineKeyboardButton("💬 Send More Feedback", callback_data="send_feedback")],
+            [InlineKeyboardButton("🏠 Main Menu", callback_data="back_to_main")]
+        ]
+        await update.message.reply_text(
+            "What would you like to do next?",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        
+        # Clear waiting state
+        context.user_data.clear()
+
+    elif waiting_for == 'broadcast_message':
+        if not is_admin(user_id):
+            await update.message.reply_text("❌ You don't have permission to broadcast messages.")
+            return
+            
+        # Get all user IDs
+        user_ids = db.get_all_user_ids()
+        
+        if not user_ids:
+            await update.message.reply_text("📭 No users found in database.")
+            return
+        
+        # Send broadcast
+        success_count = 0
+        failed_count = 0
+        
+        status_msg = await update.message.reply_text(f"📢 Broadcasting to {len(user_ids)} users...")
+        
+        broadcast_text = f"📢 **Broadcast Message**\n\n{text}"
+        
+        for target_user_id in user_ids:
+            try:
+                await context.bot.send_message(
+                    chat_id=target_user_id,
+                    text=broadcast_text,
+                    parse_mode='Markdown'
+                )
+                success_count += 1
+            except Exception as e:
+                failed_count += 1
+                logger.warning(f"Failed to send broadcast to user {target_user_id}: {e}")
+        
+        # Update status
+        await status_msg.edit_text(
+            f"✅ **Broadcast Complete**\n\n"
+            f"📤 Sent to: {success_count} users\n"
+            f"❌ Failed: {failed_count} users",
+            parse_mode='Markdown'
+        )
+        
+        # Clear waiting state
+        context.user_data.clear()
+
+# Admin command handlers
+async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /admin command."""
+    user_id = update.effective_user.id
+    
+    if not is_admin(user_id):
+        await update.message.reply_text(
+            "❌ **Access Denied**\n\nYou don't have admin permissions.",
+            parse_mode='Markdown'
+        )
+        return
+    
+    stats = db.get_user_stats()
+    
+    admin_text = (
+        f"🔧 **Admin Panel**\n\n"
+        f"📊 **Quick Stats:**\n"
+        f"👥 Total Users: {stats.get('total_users', 0)}\n"
+        f"📈 Active Today: {stats.get('active_today', 0)}\n"
+        f"📅 Active This Week: {stats.get('active_week', 0)}\n"
+        f"💬 Total Feedback: {stats.get('total_feedback', 0)}\n\n"
+        f"Choose an admin action:"
+    )
+    
+    await update.message.reply_text(admin_text, reply_markup=create_admin_menu(), parse_mode='Markdown')
+
+async def handle_admin_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle admin-specific callback queries."""
+    query = update.callback_query
+    user_id = query.from_user.id
+    
+    if not is_admin(user_id):
+        await query.answer("❌ Access denied.", show_alert=True)
+        return
+    
+    await query.answer()
+    
+    if query.data == "admin_stats":
+        stats = db.get_user_stats()
+        
+        stats_text = (
+            f"📊 **Detailed User Statistics**\n\n"
+            f"👥 Total Users: {stats.get('total_users', 0)}\n"
+            f"📈 Active Today: {stats.get('active_today', 0)}\n"
+            f"📅 Active This Week: {stats.get('active_week', 0)}\n"
+            f"✅ Channel Members: {stats.get('members', 0)}\n"
+            f"❌ Non-Members: {stats.get('non_members', 0)}\n"
+            f"💬 Total Feedback: {stats.get('total_feedback', 0)}"
+        )
+        
+        keyboard = [[InlineKeyboardButton("🔙 Back to Admin Panel", callback_data="back_to_admin")]]
+        await query.edit_message_text(stats_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        
+    elif query.data == "admin_broadcast":
+        context.user_data['waiting_for'] = 'broadcast_message'
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="back_to_admin")]]
+        await query.edit_message_text(
+            "📢 **Broadcast Message**\n\n"
+            "📝 Type the message you want to send to all users:\n\n"
+            "*⚠️ This will be sent to ALL registered users!*",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='Markdown'
+        )
+        
+    elif query.data == "admin_feedback":
+        recent_feedback = db.get_recent_feedback(5)
+        
+        if not recent_feedback:
+            feedback_text = "📭 **No Feedback Yet**\n\nNo feedback has been submitted by users."
+        else:
+            feedback_text = "💬 **Recent Feedback (Last 5)**\n\n"
+            for i, feedback in enumerate(recent_feedback, 1):
+                feedback_text += (
+                    f"**{i}.** @{feedback['username']}\n"
+                    f"📝 {feedback['text'][:100]}{'...' if len(feedback['text']) > 100 else ''}\n"
+                    f"📅 {feedback['date']}\n\n"
+                )
+        
+        keyboard = [[InlineKeyboardButton("🔙 Back to Admin Panel", callback_data="back_to_admin")]]
+        await query.edit_message_text(feedback_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        
+    elif query.data == "back_to_admin":
+        stats = db.get_user_stats()
+        
+        admin_text = (
+            f"🔧 **Admin Panel**\n\n"
+            f"📊 **Quick Stats:**\n"
+            f"👥 Total Users: {stats.get('total_users', 0)}\n"
+            f"📈 Active Today: {stats.get('active_today', 0)}\n"
+            f"📅 Active This Week: {stats.get('active_week', 0)}\n"
+            f"💬 Total Feedback: {stats.get('total_feedback', 0)}\n\n"
+            f"Choose an admin action:"
+        )
+        
+        await query.edit_message_text(admin_text, reply_markup=create_admin_menu(), parse_mode='Markdown')
 
 async def doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.message.document:
@@ -651,15 +1091,34 @@ async def doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     try:
         app = ApplicationBuilder().token(BOT_TOKEN).build()
+        
+        # Command handlers
         app.add_handler(CommandHandler("start", start))
+        app.add_handler(CommandHandler("admin", admin_command))
+        
+        # Callback query handlers - order matters!
+        # Admin callbacks need to be checked first
+        app.add_handler(CallbackQueryHandler(handle_admin_callbacks, pattern="^(admin_|back_to_admin)"))
+        # Then regular button callbacks
         app.add_handler(CallbackQueryHandler(button))
+        
+        # Text message handlers
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
+        
+        # Document handler (for file uploads)
         app.add_handler(MessageHandler(filters.Document.ALL, doc_handler))
-        logger.info("Bot is running...")
+        
+        logger.info("🚀 Smart Mahder Bot is running with all features enabled!")
+        logger.info("📊 Database initialized and ready")
+        logger.info(f"🤖 AI Features: {'✅ Available' if ai_helper.is_available() else '❌ Unavailable'}")
+        logger.info(f"🔧 Admins configured: {len(ADMIN_USER_IDS)}")
+        
         app.run_polling()
+        
     except Conflict as e:
-        logger.error("Another instance of the bot is already running. Please stop it before starting a new one.")
+        logger.error("⚠️ Another instance of the bot is already running. Please stop it before starting a new one.")
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
+        logger.error(f"❌ An unexpected error occurred: {e}")
 
 if __name__ == "__main__":
     threading.Thread(target=run_web, daemon=True).start()

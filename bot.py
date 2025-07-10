@@ -1,4 +1,7 @@
 import logging
+import os
+import asyncio
+import threading
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -12,14 +15,14 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
-import os
-import asyncio
 from telegram.error import Conflict
+from flask import Flask
+
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
 
 # --- Flask Web Server for Render Port Requirement ---
-from flask import Flask
-import threading
-
 app = Flask(__name__)
 
 @app.route("/")
@@ -31,9 +34,18 @@ def run_web():
     app.run(host="0.0.0.0", port=port)
 # ---------------------------------------------------
 
-BOT_TOKEN = "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY"
-CHANNEL_USERNAME = "HUESAchannel"  # No @
-CHANNEL_ID = -1002040479523
+# Load configuration from environment variables
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")  # No @
+CHANNEL_ID = int(os.getenv("CHANNEL_ID")) if os.getenv("CHANNEL_ID") else None
+
+# Validate required environment variables
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN environment variable is required")
+if not CHANNEL_USERNAME:
+    raise ValueError("CHANNEL_USERNAME environment variable is required")
+if not CHANNEL_ID:
+    raise ValueError("CHANNEL_ID environment variable is required")
 
 MAIN_FIELDS = [
     "Economics", "Gender", "Psychology", "Accounting", "Managment",

@@ -1,13 +1,16 @@
-# Add this at the top of your bot.py
+# Pillow compatibility workaround
 import sys
-print(f"Python version: {sys.version}")
-print(f"Pillow version: {PIL.__version__}" if 'PIL' in sys.modules else "Pillow not imported yet")
+if sys.version_info >= (3, 13):
+    raise RuntimeError("Python 3.13 is not supported. Please use Python 3.10")
+
+# Rest of your code remains the same...
 import logging
 from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup
 )
+# ... rest of your existing bot.py code ...
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,

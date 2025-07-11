@@ -1,3 +1,7 @@
+# Add this at the top of your bot.py
+import sys
+print(f"Python version: {sys.version}")
+print(f"Pillow version: {PIL.__version__}" if 'PIL' in sys.modules else "Pillow not imported yet")
 import logging
 from telegram import (
     Update,

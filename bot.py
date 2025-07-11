@@ -1,5 +1,5 @@
--import logging
--from telegram import (
+import logging
+from telegram import (
 -    Update,
 -    InlineKeyboardButton,
 -    InlineKeyboardMarkup,

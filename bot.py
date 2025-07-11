@@ -1,7 +1,3 @@
-diff --git a/bot.py b/bot.py
---- a/bot.py
-+++ b/bot.py
-@@ -1,654 +1,1552 @@
 -import logging
 -from telegram import (
 -    Update,

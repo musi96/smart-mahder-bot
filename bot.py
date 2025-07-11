@@ -2,7 +2,7 @@ import logging
 from telegram import (
     Update,
     InlineKeyboardButton,
-    InlineKeyboardMarkup,
+    InlineKeyboardMarkup
 )
 from telegram.ext import (
     ApplicationBuilder,
@@ -14,270 +14,47 @@ from telegram.ext import (
 )
 import os
 import asyncio
-import json
-import tempfile
-import requests
-from datetime import datetime
 from telegram.error import Conflict
-
-# File processing imports
-import PyPDF2
-from docx import Document
-from pptx import Presentation
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.lib.colors import Color
-from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_LEFT, TA_CENTER
+import requests
+import pdfplumber
 from io import BytesIO
+import python_pptx
+from docx import Document
 
-# --- Flask Web Server for Render Port Requirement ---
+# --- Flask Web Server ---
 from flask import Flask
 import threading
-
 app = Flask(__name__)
-
 @app.route("/")
 def health():
     return "OK", 200
-
 def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
-# ---------------------------------------------------
+# -----------------------
 
+# Configuration
 BOT_TOKEN = "7969720988:AAHexLCWd8yMmQM7NiMyPhOmyCJ61fOXDwY"
-CHANNEL_USERNAME = "HUESAchannel"  # No @
+CHANNEL_USERNAME = "HUESAchannel"
 CHANNEL_ID = -1002040479523
-
-# AI Features Configuration
+ADMIN_ID = 1952017668
 HF_TOKEN = "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"
 TEXT_API = "https://api-inference.huggingface.co/models/gpt2"
 
-MAIN_FIELDS = [
-    "Economics", "Gender", "Psychology", "Accounting", "Managment",
-    "PADM", "Sociology", "Journalism", "Hotel & Tourism Management"
+# Menu Structure
+MAIN_MENU = [
+    ["📚 Educational Materials"],
+    ["🧠 AI Features"],
+    ["💬 Feedback"]
 ]
-YEARS = ["2 year", "3 year", "4 year"]
-SEMESTERS = ["1 semester", "2 semester"]
 
-# AI Features Options
-QUESTION_TYPES = [
-    "True or False", "Multiple Choice", "Writing (short answer)",
-    "Workout (calculation)", "Matching", "Fill in the Blank"
+AI_FEATURES = [
+    ["❓ Generate Questions"],
+    ["📝 Create Summary"],
+    ["🔙 Back"]
 ]
-DIFFICULTY_LEVELS = ["Easy", "Medium", "Hard"]
-QUESTION_COUNTS = ["5", "10", "15", "20", "25"]
-NOTE_DEPTHS = ["Deep (detailed)", "Medium (summary)", "Short (bullet points)"]
 
-# User session storage
-user_sessions = {}
-
-def is_same_message(message, new_text, new_reply_markup):
-    current_text = message.text or ""
-    current_markup = message.reply_markup
-    return (current_text == (new_text or "")) and (current_markup == new_reply_markup)
-
-# File processing and AI helper functions
-def extract_text_from_pdf(file_path):
-    """Extract text from PDF file"""
-    try:
-        with open(file_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            text = ""
-            for page in pdf_reader.pages:
-                text += page.extract_text() + "\n"
-        return text.strip()
-    except Exception as e:
-        logger.error(f"Error extracting text from PDF: {e}")
-        return ""
-
-def extract_text_from_docx(file_path):
-    """Extract text from DOCX file"""
-    try:
-        doc = Document(file_path)
-        text = ""
-        for paragraph in doc.paragraphs:
-            text += paragraph.text + "\n"
-        return text.strip()
-    except Exception as e:
-        logger.error(f"Error extracting text from DOCX: {e}")
-        return ""
-
-def extract_text_from_pptx(file_path):
-    """Extract text from PPTX file"""
-    try:
-        prs = Presentation(file_path)
-        text = ""
-        for slide in prs.slides:
-            for shape in slide.shapes:
-                if hasattr(shape, "text"):
-                    text += shape.text + "\n"
-        return text.strip()
-    except Exception as e:
-        logger.error(f"Error extracting text from PPTX: {e}")
-        return ""
-
-def extract_text_from_txt(file_path):
-    """Extract text from TXT file"""
-    try:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            return file.read().strip()
-    except UnicodeDecodeError:
-        try:
-            with open(file_path, 'r', encoding='latin-1') as file:
-                return file.read().strip()
-        except Exception as e:
-            logger.error(f"Error extracting text from TXT: {e}")
-            return ""
-    except Exception as e:
-        logger.error(f"Error extracting text from TXT: {e}")
-        return ""
-
-def extract_text_from_file(file_path, file_extension):
-    """Extract text from file based on extension"""
-    if file_extension.lower() == '.pdf':
-        return extract_text_from_pdf(file_path)
-    elif file_extension.lower() == '.docx':
-        return extract_text_from_docx(file_path)
-    elif file_extension.lower() == '.pptx':
-        return extract_text_from_pptx(file_path)
-    elif file_extension.lower() == '.txt':
-        return extract_text_from_txt(file_path)
-    else:
-        return ""
-
-async def call_huggingface_api(prompt, max_length=500):
-    """Call Hugging Face GPT-2 API"""
-    try:
-        headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-        payload = {
-            "inputs": prompt,
-            "parameters": {
-                "max_length": max_length,
-                "temperature": 0.7,
-                "do_sample": True,
-                "top_p": 0.9
-            }
-        }
-        
-        response = requests.post(TEXT_API, headers=headers, json=payload)
-        response.raise_for_status()
-        
-        result = response.json()
-        if isinstance(result, list) and len(result) > 0:
-            generated_text = result[0].get('generated_text', '')
-            # Remove the original prompt from the response
-            if generated_text.startswith(prompt):
-                generated_text = generated_text[len(prompt):].strip()
-            return generated_text
-        return ""
-    except Exception as e:
-        logger.error(f"Error calling Hugging Face API: {e}")
-        return "Error generating content. Please try again."
-
-def create_pdf_with_watermark(content, filename="output.pdf"):
-    """Create PDF with watermark"""
-    try:
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
-        
-        # Define styles
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=16,
-            spaceAfter=20,
-            alignment=TA_CENTER
-        )
-        
-        normal_style = ParagraphStyle(
-            'CustomNormal',
-            parent=styles['Normal'],
-            fontSize=12,
-            spaceAfter=12,
-            alignment=TA_LEFT
-        )
-        
-        # Build content
-        story = []
-        
-        # Add content paragraphs
-        for line in content.split('\n'):
-            if line.strip():
-                if line.strip().startswith('#') or line.strip().isupper():
-                    # Treat as heading
-                    story.append(Paragraph(line.strip(), title_style))
-                else:
-                    # Treat as normal text
-                    story.append(Paragraph(line.strip(), normal_style))
-                story.append(Spacer(1, 6))
-        
-        # Add watermark function
-        def add_watermark(canvas, doc):
-            canvas.saveState()
-            canvas.setFont("Helvetica-Bold", 10)
-            canvas.setFillColorRGB(0.7, 0.7, 0.7)  # Light gray
-            canvas.drawCentredText(A4[0]/2, 30, "@Smartmahider_bot")
-            canvas.restoreState()
-        
-        # Build PDF
-        doc.build(story, onFirstPage=add_watermark, onLaterPages=add_watermark)
-        
-        buffer.seek(0)
-        return buffer
-    except Exception as e:
-        logger.error(f"Error creating PDF: {e}")
-        return None
-
-def log_user_activity(user_id, activity_type, data):
-    """Log user activity to JSON file"""
-    try:
-        log_entry = {
-            "user_id": user_id,
-            "timestamp": datetime.now().isoformat(),
-            "activity_type": activity_type,
-            "data": data
-        }
-        
-        # Try to read existing logs
-        try:
-            with open("user_logs.json", "r") as f:
-                logs = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            logs = []
-        
-        # Add new log entry
-        logs.append(log_entry)
-        
-        # Write back to file
-        with open("user_logs.json", "w") as f:
-            json.dump(logs, f, indent=2)
-            
-    except Exception as e:
-        logger.error(f"Error logging user activity: {e}")
-
-# Updated make_centered_big_buttons to handle text overflow and blank buttons
-def make_centered_big_buttons(rows, back_callback=None, max_length=50):
-    keyboard = []
-    for text, callback in rows:
-        display_text = text
-        if not text.strip():
-            display_text = "Coming soon!"
-            callback = "coming_soon"
-        else:
-            # Truncate text if too long, but keep readable
-            if len(text) > max_length:
-                display_text = text[:max_length - 4] + "…"
-        # Add more spaces for better visibility (remove excessive unicode spaces)
-        keyboard.append([InlineKeyboardButton(f"{display_text}", callback_data=callback)])
-    if back_callback:
-        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data=back_callback)])
-    return InlineKeyboardMarkup(keyboard)
-
+# All your course materials (complete structure)
 courses = {
     "Economics": {
         "2 year": {
@@ -414,7 +191,7 @@ courses = {
                     "files": [
                         {"file_id": "BQACAgQAAxkBAAIDBWhZvM8eClDFYgo7CPDkJxQhP7kXAAJ5FgACDtQgU0w8DeCP0seINgQ"},
                         {"file_id": "BQACAgQAAxkBAAIDBmhZvM95-qZflBrfHdJrS2q5sRyaAAL4DgAC1LGgUhlSv4Fttk4JNgQ"},
-                        {"file_id": "BQACAgQAAxkBAAIDB3hZvM_HWjS8UpbAPyuQF3iotta5AAIOFgACVDwwU1lX7F-M15fENgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIDB2hZvM_HWjS8UpbAPyuQF3iotta5AAIOFgACVDwwU1lX7F-M15fENgQ"},
                         {"file_id": "BQACAgQAAxkBAAIDCGhZvM8CWyqpoo5W80qrtvBIOwAB7wACDhgAAreaCVIadiY-n2rpODYE"},
                         {"file_id": "BQACAgQAAxkBAAIDCWhZvM_zaMTKPn5ipiT-MY4U01YWAAICFwAC91mhUfRvxlhsi09pNgQ"},
                         {"file_id": "BQACAgQAAxkBAAIDCmhZvM8feg3lFo6yYEAG8K_YbleFAAI9HQACw08YUUpQkVBlvMdENgQ"},
@@ -672,15 +449,55 @@ courses = {
                     ]
                 }
             ],
+            "2 semester": []
+        }
+    },
+    "Accounting": {
+        "2 year": {
+            "1 semester": [
+                {
+                    "name": "Accounting 1",
+                    "files": [
+                        {"file_id": "BQACAgQAAxkBAAIBD2hZBmDMyIH9XkQhmXxeypNkYLkMAALgFgACAvDIUtsihO9VRhHeNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIBEGhZBmDxZAPjdNnJ6T91cW6qs3qzAALhFgACAvDIUoM_a7ntjMW3NgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIBEWhZBmBFNDzyCgdcqXUkVEYrwhdBAALiFgACAvDIUtMv-EeSTSoPNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIBEmhZBmDmiuOlJnIwF5oXC6seoAABHgAC4xYAAgLwyFK6NIdjWRBqgTYE"},
+                        {"file_id": "BQACAgQAAxkBAAIBE2hZBmD0eV7kBJAfQDWeyIF7WrDBAALkFgACAvDIUn-VROTRFzCTNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIBFGhZBmBxJATDi9CSGtc41IC_2MBWAALlFgACAvDIUr1Lc8-h9dUpNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIBFWhZBmBxTaKe-jK-0g964Z2mCqoGAALmFgACAvDIUlOksdz9ddQdNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIBFmhZBmBvjH6sYYrsGzILz0CNBGAEAALnFgACAvDIUizGebp3PbgNNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAIBF2hZBmCvvdQ2c_JSPGmNInO5zvn1AALoFgACAvDIUhX9FL6SQ9gyNgQ"}
+                    ]
+                }
+            ],
             "2 semester": [
-                # Add courses for 4 year 2 semester here later
+                {
+                    "name": "Accounting 2",
+                    "files": [
+                        {"file_id": "BQACAgQAAxkBAAICt2hZtKp835jnDdaAp_UqkN20zxuXAAIKGAACAvDIUv2c5kRuqqNnNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAICuGhZtKo_qHKS-rBPbYs-UpKh9ylCAAILGAACAvDIUh0Nzuq0mPwONgQ"},
+                        {"file_id": "BQACAgQAAxkBAAICuWhZtKpujcb27-7GN-rsFwy1M-d-AAIMGAACAvDIUhU8Jjya_25rNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAICumhZtKq9nDukHeMkZ6OyeH07OfF3AAINGAACAvDIUvZpUpMniBXGNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAICu2hZtKr1Kd4of8q1xDRRbFHGA3eSAAIOGAACAvDIUpCutJF2ztGbNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAICvGhZtKqPuaY5Vjo7XA3NF_Q3dUpjAAIPGAACAvDIUph7RdNcIV4SNgQ"},
+                        {"file_id": "BQACAgQAAxkBAAICvWhZtKoG2GYqOvmYB6BHd1w0XwbdAAIQGAACAvDIUj2VWfOIO9weNgQ"}
+                    ]
+                }
             ]
         }
-    }
+    },
+    "Gender": {},
+    "Psychology": {},
+    "Management": {},
+    "PADM": {},
+    "Sociology": {},
+    "Journalism": {},
+    "Hotel & Tourism Management": {}
 }
 
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", 
+    level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
@@ -694,857 +511,225 @@ async def is_user_member(user_id, context):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    join_button = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
-        [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
-    ])
     if not await is_user_member(user_id, context):
-        if not is_same_message(update.message, "Please join our channel to access the bot!", join_button):
-            await update.message.reply_text(
-                "Please join our channel to access the bot!", reply_markup=join_button
-            )
+        join_button = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
+            [InlineKeyboardButton("✅ I've Joined", callback_data="check_membership")]
+        ])
+        await update.message.reply_text(
+            "Please join our channel to access the bot!",
+            reply_markup=join_button
+        )
         return
     
-    # Main menu with both original features and new AI features
-    main_menu = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📚 Course Materials", callback_data="course_materials")],
-        [InlineKeyboardButton("🧠 AI Features", callback_data="ai_features")]
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton(text[0], callback_data=text[0])] for text in MAIN_MENU
     ])
-    
-    await update.message.reply_text(
-        "🎓 Welcome to Smart Mahider Bot!\n\nChoose what you'd like to access:",
-        reply_markup=main_menu
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="🏠 Main Menu:",
+        reply_markup=markup
     )
+
+async def show_fields(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    fields = [field for field in courses.keys() if courses[field]]  # Only show fields with content
+    buttons = [[InlineKeyboardButton(field, callback_data=f"field|{field}")] for field in fields]
+    markup = InlineKeyboardMarkup(buttons)
+    await update.callback_query.edit_message_text(
+        text="Select your field:",
+        reply_markup=markup
+    )
+
+async def handle_course_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    data = query.data.split('|')
+    
+    if data[0] == "field":
+        field = data[1]
+        years = list(courses[field].keys())
+        buttons = [[InlineKeyboardButton(year, callback_data=f"year|{field}|{year}")] for year in years]
+        markup = InlineKeyboardMarkup(buttons)
+        await query.edit_message_text(
+            text=f"Select year for {field}:",
+            reply_markup=markup
+        )
+    
+    elif data[0] == "year":
+        field, year = data[1], data[2]
+        semesters = list(courses[field][year].keys())
+        buttons = [[InlineKeyboardButton(sem, callback_data=f"sem|{field}|{year}|{sem}")] for sem in semesters]
+        markup = InlineKeyboardMarkup(buttons)
+        await query.edit_message_text(
+            text=f"Select semester for {field} - {year}:",
+            reply_markup=markup
+        )
+    
+    elif data[0] == "sem":
+        field, year, sem = data[1], data[2], data[3]
+        course_list = courses[field][year][sem]
+        buttons = [[InlineKeyboardButton(course['name'], callback_data=f"course|{field}|{year}|{sem}|{idx}")] 
+                  for idx, course in enumerate(course_list)]
+        markup = InlineKeyboardMarkup(buttons)
+        await query.edit_message_text(
+            text=f"Select course for {field} - {year} - {sem}:",
+            reply_markup=markup
+        )
+    
+    elif data[0] == "course":
+        field, year, sem, idx = data[1], data[2], data[3], int(data[4])
+        course = courses[field][year][sem][idx]
+        
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=f"📚 {course['name']}"
+        )
+        
+        for file in course['files']:
+            await context.bot.send_document(
+                chat_id=query.message.chat_id,
+                document=file['file_id'],
+                protect_content=True
+            )
+        
+        # Show back button
+        buttons = [[InlineKeyboardButton("🔙 Back", callback_data=f"sem|{field}|{year}|{sem}")]]
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="What would you like to do next?",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
 
-    join_button = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Join our channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
-        [InlineKeyboardButton("✅ I have joined", callback_data="check_membership")]
-    ])
+    if not await is_user_member(user_id, context):
+        join_button = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME}")],
+            [InlineKeyboardButton("✅ I've Joined", callback_data="check_membership")]
+        ])
+        await query.edit_message_text(
+            "Please join our channel to access the bot!",
+            reply_markup=join_button
+        )
+        return
 
     if query.data == "check_membership":
-        if not await is_user_member(user_id, context):
-            if not is_same_message(query.message, "You are still not a member of the channel. Please join and try again!", join_button):
-                await query.edit_message_text(
-                    "You are still not a member of the channel. Please join and try again!",
-                    reply_markup=join_button
-                )
-            return
-        main_menu = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📚 Course Materials", callback_data="course_materials")],
-            [InlineKeyboardButton("🧠 AI Features", callback_data="ai_features")]
+        await start(query, context)
+        return
+
+    if query.data == "📚 Educational Materials":
+        await show_fields(query, context)
+    elif query.data == "🧠 AI Features":
+        markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton(text[0], callback_data=text[0])] for text in AI_FEATURES
         ])
-        if not is_same_message(query.message, "🎓 Welcome to Smart Mahider Bot!\n\nChoose what you'd like to access:", main_menu):
-            await query.edit_message_text(
-                "🎓 Welcome to Smart Mahider Bot!\n\nChoose what you'd like to access:",
-                reply_markup=main_menu
-            )
+        await query.edit_message_text("🤖 AI Features:", reply_markup=markup)
+    elif query.data == "🔙 Back":
+        await start(query, context)
+    elif query.data == "❓ Generate Questions":
+        context.user_data['awaiting_file'] = True
+        context.user_data['action'] = 'questions'
+        await query.edit_message_text("📤 Please upload a file (PDF, PPT, DOCX, or TXT) to generate questions from")
+    elif query.data == "📝 Create Summary":
+        context.user_data['awaiting_file'] = True
+        context.user_data['action'] = 'summary'
+        await query.edit_message_text("📤 Please upload a file (PDF, PPT, DOCX, or TXT) to create a summary from")
+    elif query.data.startswith(("field|", "year|", "sem|", "course|")):
+        await handle_course_selection(update, context)
+
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.user_data.get('awaiting_file'):
         return
 
-    if not await is_user_member(user_id, context):
-        if not is_same_message(query.message, "Please join our channel to access the bot!", join_button):
-            await query.edit_message_text(
-                "Please join our channel to access the bot!", reply_markup=join_button
-            )
-        return
+    doc = update.message.document
+    file = await context.bot.get_file(doc.file_id)
+    file_bytes = BytesIO()
+    await file.download_to_memory(file_bytes)
+    file_bytes.seek(0)
 
-    # If "coming soon" was pressed, just show a notice and do nothing more
-    if query.data == "coming_soon":
-        await query.answer("Coming soon!", show_alert=True)
-        return
-
-    # Handle main menu options
-    if query.data == "course_materials":
-        field_rows = [(field, f"field|{field}") for field in MAIN_FIELDS]
-        markup = make_centered_big_buttons(field_rows, back_callback="back_to_main_menu")
-        if not is_same_message(query.message, "Select your field:", markup):
-            await query.edit_message_text("Select your field:", reply_markup=markup)
-        return
-
-    if query.data == "ai_features":
-        ai_menu = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📄 Question Generation", callback_data="question_generation")],
-            [InlineKeyboardButton("📝 Create a Short Note", callback_data="short_note")],
-            [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_to_main_menu")]
-        ])
-        if not is_same_message(query.message, "🧠 AI Features\n\nChoose what you'd like to do:", ai_menu):
-            await query.edit_message_text(
-                "🧠 AI Features\n\nChoose what you'd like to do:",
-                reply_markup=ai_menu
-            )
-        return
-
-    if query.data == "back_to_main_menu":
-        main_menu = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📚 Course Materials", callback_data="course_materials")],
-            [InlineKeyboardButton("🧠 AI Features", callback_data="ai_features")]
-        ])
-        if not is_same_message(query.message, "🎓 Welcome to Smart Mahider Bot!\n\nChoose what you'd like to access:", main_menu):
-            await query.edit_message_text(
-                "🎓 Welcome to Smart Mahider Bot!\n\nChoose what you'd like to access:",
-                reply_markup=main_menu
-            )
-        return
-
-    # Handle AI feature selections
-    if query.data == "question_generation":
-        user_sessions[user_id] = {"feature": "question_generation", "step": "upload_file"}
-        await query.edit_message_text(
-            "📄 Question Generation Feature\n\n"
-            "Please upload a file (PDF, DOCX, PPTX, or TXT) that you want to generate questions from.\n\n"
-            "Supported formats: PDF, Word Document, PowerPoint, Text files",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 Back to AI Features", callback_data="ai_features")]
-            ])
-        )
-        return
-
-    if query.data == "short_note":
-        user_sessions[user_id] = {"feature": "short_note", "step": "upload_file"}
-        await query.edit_message_text(
-            "📝 Create a Short Note Feature\n\n"
-            "Please upload a file (PDF, DOCX, PPTX, or TXT) that you want to create notes from.\n\n"
-            "Supported formats: PDF, Word Document, PowerPoint, Text files",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 Back to AI Features", callback_data="ai_features")]
-            ])
-        )
-        return
-
-    data = query.data.split("|")
-    if data[0] == "field":
-        field = data[1]
-        year_rows = [(year, f"select_year|{field}|{year}") for year in YEARS]
-        markup = make_centered_big_buttons(year_rows, back_callback="back_to_main")
-        text = f"Select year for {field}:"
-        if not is_same_message(query.message, text, markup):
-            await query.edit_message_text(text, reply_markup=markup)
-
-    elif data[0] == "year":
-        year = data[1]
-        field_rows = [(field, f"select_year|{field}|{year}") for field in MAIN_FIELDS]
-        markup = make_centered_big_buttons(field_rows, back_callback="back_to_main")
-        text = f"Select field for {year}:"
-        if not is_same_message(query.message, text, markup):
-            await query.edit_message_text(text, reply_markup=markup)
-
-    elif data[0] == "select_year":
-        field, year = data[1], data[2]
-        semesters = list(courses.get(field, {}).get(year, {}).keys())
-        # Add a blank ("") semester if list is empty to show "Coming soon!"
-        if not semesters:
-            sem_rows = [("", "")]
-        else:
-            sem_rows = [(sem, f"semester|{field}|{year}|{sem}") for sem in semesters]
-        markup = make_centered_big_buttons(sem_rows, back_callback=f"field|{field}")
-        text = f"Select semester for {field} - {year}:"
-        if not is_same_message(query.message, text, markup):
-            await query.edit_message_text(text, reply_markup=markup)
-
-    elif data[0] == "semester":
-        field, year, semester = data[1], data[2], data[3]
-        course_list = courses.get(field, {}).get(year, {}).get(semester, [])
-        # If there are no courses, show a "Coming soon!" button
-        if not course_list:
-            course_rows = [("", "")]
-        else:
-            course_rows = [(course["name"], f"course|{field}|{year}|{semester}|{idx}") for idx, course in enumerate(course_list)]
-        markup = make_centered_big_buttons(course_rows, back_callback=f"select_year|{field}|{year}")
-        text = f"Select course for {field} - {year} - {semester}:"
-        if not is_same_message(query.message, text, markup):
-            await query.edit_message_text(text, reply_markup=markup)
-
-    elif data[0] == "course":
-        field, year, semester, idx = data[1], data[2], data[3], int(data[4])
-        course = courses.get(field, {}).get(year, {}).get(semester, [])[idx]
-        files = course.get("files", [])
-        try:
-            await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
-        except Exception as e:
-            logger.warning(f"Failed to delete menu message: {e}")
-
-        # Send course name first
-        await context.bot.send_message(
-            chat_id=query.message.chat_id,
-            text=f"📚 {course['name']}"
-        )
-
-        # Send all files as protected_content (prevents forwarding/saving to gallery, but not download)
-        if files:
-            for f in files:
-                file_id = f.get("file_id")
-                if file_id:
-                    await context.bot.send_document(
-                        chat_id=query.message.chat_id,
-                        document=file_id,
-                        protect_content=True
-                    )
-        else:
-            await context.bot.send_message(
-                chat_id=query.message.chat_id,
-                text="No files available for this course."
-            )
-
-        # Show only the back button
-        markup = make_centered_big_buttons([], back_callback=f"semester|{field}|{year}|{semester}")
-        await context.bot.send_message(
-            chat_id=query.message.chat_id,
-            text="Choose what to do next:",
-            reply_markup=markup
-        )
-
-    elif data[0] == "file":
-        pass
-
-    # Handle AI feature workflow callbacks
-    elif query.data == "select_chapter":
-        if user_id in user_sessions:
-            session = user_sessions[user_id]
-            session["use_full_document"] = False
-            await query.edit_message_text(
-                "📖 Chapter/Unit Selection\n\n"
-                "Please type the name or number of the chapter/unit you want to focus on.\n\n"
-                "For example: 'Chapter 1', 'Introduction', 'Unit 2', etc.",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("📚 Use entire document instead", callback_data="use_full_document")],
-                    [InlineKeyboardButton("🔙 Back to AI Features", callback_data="ai_features")]
-                ])
-            )
-            session["step"] = "awaiting_chapter_input"
-
-    elif query.data == "use_full_document":
-        if user_id in user_sessions:
-            session = user_sessions[user_id]
-            session["use_full_document"] = True
-            session["selected_chapter"] = None
-            
-            if session["feature"] == "question_generation":
-                # Go to question type selection
-                session["step"] = "question_type_selection"
-                
-                type_buttons = []
-                for i in range(0, len(QUESTION_TYPES), 2):
-                    row = []
-                    row.append(InlineKeyboardButton(QUESTION_TYPES[i], callback_data=f"qtype_{i}"))
-                    if i + 1 < len(QUESTION_TYPES):
-                        row.append(InlineKeyboardButton(QUESTION_TYPES[i + 1], callback_data=f"qtype_{i + 1}"))
-                    type_buttons.append(row)
-                
-                type_buttons.append([InlineKeyboardButton("✅ Continue", callback_data="continue_to_difficulty")])
-                type_buttons.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_chapter_selection")])
-                
-                await query.edit_message_text(
-                    "📝 Question Type Selection\n\n"
-                    "Select the types of questions you want (you can select multiple):\n\n"
-                    "Selected types: None yet",
-                    reply_markup=InlineKeyboardMarkup(type_buttons)
-                )
-                session["selected_question_types"] = []
-                
-            elif session["feature"] == "short_note":
-                # Go to note depth selection
-                session["step"] = "depth_selection"
-                depth_menu = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔍 Deep (detailed)", callback_data="depth_deep")],
-                    [InlineKeyboardButton("📄 Medium (summary)", callback_data="depth_medium")],
-                    [InlineKeyboardButton("📝 Short (bullet points)", callback_data="depth_short")],
-                    [InlineKeyboardButton("🔙 Back", callback_data="back_to_chapter_selection")]
-                ])
-                
-                await query.edit_message_text(
-                    "📝 Note Depth Selection\n\n"
-                    "Choose how detailed you want your notes to be:",
-                    reply_markup=depth_menu
-                )
-
-    # Handle question type selections
-    elif query.data.startswith("qtype_"):
-        if user_id in user_sessions:
-            session = user_sessions[user_id]
-            type_index = int(query.data.split("_")[1])
-            
-            if "selected_question_types" not in session:
-                session["selected_question_types"] = []
-            
-            question_type = QUESTION_TYPES[type_index]
-            if question_type in session["selected_question_types"]:
-                session["selected_question_types"].remove(question_type)
-            else:
-                session["selected_question_types"].append(question_type)
-            
-            # Update the message with selected types
-            selected_text = ", ".join(session["selected_question_types"]) if session["selected_question_types"] else "None yet"
-            
-            type_buttons = []
-            for i in range(0, len(QUESTION_TYPES), 2):
-                row = []
-                q_type_1 = QUESTION_TYPES[i]
-                selected_1 = "✅ " if q_type_1 in session["selected_question_types"] else ""
-                row.append(InlineKeyboardButton(f"{selected_1}{q_type_1}", callback_data=f"qtype_{i}"))
-                
-                if i + 1 < len(QUESTION_TYPES):
-                    q_type_2 = QUESTION_TYPES[i + 1]
-                    selected_2 = "✅ " if q_type_2 in session["selected_question_types"] else ""
-                    row.append(InlineKeyboardButton(f"{selected_2}{q_type_2}", callback_data=f"qtype_{i + 1}"))
-                type_buttons.append(row)
-            
-            type_buttons.append([InlineKeyboardButton("✅ Continue", callback_data="continue_to_difficulty")])
-            type_buttons.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_chapter_selection")])
-            
-            await query.edit_message_text(
-                "📝 Question Type Selection\n\n"
-                "Select the types of questions you want (you can select multiple):\n\n"
-                f"Selected types: {selected_text}",
-                reply_markup=InlineKeyboardMarkup(type_buttons)
-            )
-
-    elif query.data == "continue_to_difficulty":
-        if user_id in user_sessions:
-            session = user_sessions[user_id]
-            if not session.get("selected_question_types"):
-                await query.answer("Please select at least one question type!", show_alert=True)
-                return
-            
-            session["step"] = "difficulty_selection"
-            
-            difficulty_buttons = [[InlineKeyboardButton(diff, callback_data=f"difficulty_{diff.lower()}")] for diff in DIFFICULTY_LEVELS]
-            difficulty_buttons.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_question_types")])
-            
-            await query.edit_message_text(
-                "🎯 Difficulty Level Selection\n\n"
-                "Choose the difficulty level for your questions:",
-                reply_markup=InlineKeyboardMarkup(difficulty_buttons)
-            )
-
-    elif query.data.startswith("difficulty_"):
-        if user_id in user_sessions:
-            session = user_sessions[user_id]
-            difficulty = query.data.split("_")[1].capitalize()
-            session["selected_difficulty"] = difficulty
-            session["step"] = "question_count_selection"
-            
-            count_buttons = [[InlineKeyboardButton(f"{count} questions", callback_data=f"count_{count}")] for count in QUESTION_COUNTS]
-            count_buttons.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_difficulty")])
-            
-            await query.edit_message_text(
-                "🔢 Question Count Selection\n\n"
-                "How many questions would you like to generate?",
-                reply_markup=InlineKeyboardMarkup(count_buttons)
-            )
-
-    elif query.data.startswith("count_"):
-        if user_id in user_sessions:
-            session = user_sessions[user_id]
-            count = query.data.split("_")[1]
-            session["selected_count"] = count
-            
-            # Start question generation
-            await query.edit_message_text("🔄 Generating questions... This may take a few moments.")
-            
-            try:
-                await generate_questions(user_id, context, query.message.chat_id)
-            except Exception as e:
-                logger.error(f"Error generating questions: {e}")
-                await context.bot.send_message(
-                    chat_id=query.message.chat_id,
-                    text="❌ An error occurred while generating questions. Please try again."
-                )
-
-    # Handle note depth selections
-    elif query.data.startswith("depth_"):
-        if user_id in user_sessions:
-            session = user_sessions[user_id]
-            depth = query.data.split("_")[1]
-            session["selected_depth"] = depth
-            
-            await query.edit_message_text("🔄 Creating your note... This may take a few moments.")
-            
-            try:
-                await generate_note(user_id, context, query.message.chat_id)
-            except Exception as e:
-                logger.error(f"Error generating note: {e}")
-                await context.bot.send_message(
-                    chat_id=query.message.chat_id,
-                    text="❌ An error occurred while creating the note. Please try again."
-                )
-    
-    # Handle back navigation buttons
-    elif query.data == "back_to_chapter_selection":
-        if user_id in user_sessions:
-            session = user_sessions[user_id]
-            chapter_menu = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📖 Select a specific chapter/unit", callback_data="select_chapter")],
-                [InlineKeyboardButton("📚 Use entire document", callback_data="use_full_document")],
-                [InlineKeyboardButton("🔙 Back to AI Features", callback_data="ai_features")]
-            ])
-            
-            await query.edit_message_text(
-                f"📄 File: {session.get('file_name', 'Unknown')}\n\n"
-                "Would you like to select a specific chapter/unit or use the entire document?",
-                reply_markup=chapter_menu
-            )
-    
-    elif query.data == "back_to_question_types":
-        if user_id in user_sessions:
-            session = user_sessions[user_id]
-            session["step"] = "question_type_selection"
-            
-            type_buttons = []
-            for i in range(0, len(QUESTION_TYPES), 2):
-                row = []
-                q_type_1 = QUESTION_TYPES[i]
-                selected_1 = "✅ " if q_type_1 in session.get("selected_question_types", []) else ""
-                row.append(InlineKeyboardButton(f"{selected_1}{q_type_1}", callback_data=f"qtype_{i}"))
-                
-                if i + 1 < len(QUESTION_TYPES):
-                    q_type_2 = QUESTION_TYPES[i + 1]
-                    selected_2 = "✅ " if q_type_2 in session.get("selected_question_types", []) else ""
-                    row.append(InlineKeyboardButton(f"{selected_2}{q_type_2}", callback_data=f"qtype_{i + 1}"))
-                type_buttons.append(row)
-            
-            type_buttons.append([InlineKeyboardButton("✅ Continue", callback_data="continue_to_difficulty")])
-            type_buttons.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_chapter_selection")])
-            
-            selected_text = ", ".join(session.get("selected_question_types", [])) if session.get("selected_question_types") else "None yet"
-            
-            await query.edit_message_text(
-                "📝 Question Type Selection\n\n"
-                "Select the types of questions you want (you can select multiple):\n\n"
-                f"Selected types: {selected_text}",
-                reply_markup=InlineKeyboardMarkup(type_buttons)
-            )
-    
-    elif query.data == "back_to_difficulty":
-        if user_id in user_sessions:
-            session = user_sessions[user_id]
-            session["step"] = "difficulty_selection"
-            
-            difficulty_buttons = [[InlineKeyboardButton(diff, callback_data=f"difficulty_{diff.lower()}")] for diff in DIFFICULTY_LEVELS]
-            difficulty_buttons.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_question_types")])
-            
-            await query.edit_message_text(
-                "🎯 Difficulty Level Selection\n\n"
-                "Choose the difficulty level for your questions:",
-                reply_markup=InlineKeyboardMarkup(difficulty_buttons)
-            )
-
-    elif data[0] == "back_to_main":
-        try:
-            await context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
-        except Exception as e:
-            logger.warning(f"Failed to delete select year message: {e}")
-        main_menu = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📚 Course Materials", callback_data="course_materials")],
-            [InlineKeyboardButton("🧠 AI Features", callback_data="ai_features")]
-        ])
-        await context.bot.send_message(
-            chat_id=query.message.chat_id,
-            text="🎓 Welcome to Smart Mahider Bot!\n\nChoose what you'd like to access:",
-            reply_markup=main_menu
-        )
-
-async def doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    
-    # Check if user is in an AI feature workflow
-    if user_id not in user_sessions:
-        # Default behavior for non-AI feature document uploads
-        if update.message and update.message.document:
-            file_id = update.message.document.file_id
-            print(f"file_id: {file_id}")
-            await update.message.reply_text(
-                f"Received! file_id printed to console:\n{file_id}"
-            )
-        return
-    
-    session = user_sessions[user_id]
-    
-    if session.get("step") == "upload_file":
-        document = update.message.document
-        file_name = document.file_name or "unknown"
-        file_extension = os.path.splitext(file_name)[1]
-        
-        # Check if file type is supported
-        supported_extensions = ['.pdf', '.docx', '.pptx', '.txt']
-        if file_extension.lower() not in supported_extensions:
-            await update.message.reply_text(
-                "❌ Unsupported file format!\n\n"
-                "Please upload a file in one of these formats:\n"
-                "• PDF (.pdf)\n"
-                "• Word Document (.docx)\n"
-                "• PowerPoint (.pptx)\n"
-                "• Text File (.txt)"
-            )
-            return
-        
-        try:
-            # Download and process the file
-            await update.message.reply_text("📁 Downloading and processing your file...")
-            
-            file = await context.bot.get_file(document.file_id)
-            
-            # Create temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
-                await file.download_to_drive(temp_file.name)
-                
-                # Extract text from file
-                extracted_text = extract_text_from_file(temp_file.name, file_extension)
-                
-                # Clean up temporary file
-                os.unlink(temp_file.name)
-            
-            if not extracted_text.strip():
-                await update.message.reply_text(
-                    "❌ Could not extract text from the file. Please make sure the file contains readable text and try again."
-                )
-                return
-            
-            # Store extracted text in session
-            session["extracted_text"] = extracted_text
-            session["file_name"] = file_name
-            
-            # Log the file upload
-            log_user_activity(user_id, "file_upload", {
-                "feature": session["feature"],
-                "file_name": file_name,
-                "file_size": len(extracted_text)
-            })
-            
-            # Show text preview
-            preview_text = extracted_text[:500] + "..." if len(extracted_text) > 500 else extracted_text
-            
-            if session["feature"] == "question_generation":
-                # Next step: chapter/unit selection
-                session["step"] = "chapter_selection"
-                
-                chapter_menu = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("📖 Select a specific chapter/unit", callback_data="select_chapter")],
-                    [InlineKeyboardButton("📚 Use entire document", callback_data="use_full_document")],
-                    [InlineKeyboardButton("🔙 Back to AI Features", callback_data="ai_features")]
-                ])
-                
-                await update.message.reply_text(
-                    f"✅ File processed successfully!\n\n"
-                    f"📄 **File:** {file_name}\n\n"
-                    f"**Preview:**\n{preview_text}\n\n"
-                    f"Would you like to select a specific chapter/unit or use the entire document?",
-                    reply_markup=chapter_menu
-                )
-                
-            elif session["feature"] == "short_note":
-                # Next step: note depth selection  
-                session["step"] = "depth_selection"
-                
-                depth_menu = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔍 Deep (detailed)", callback_data="depth_deep")],
-                    [InlineKeyboardButton("📄 Medium (summary)", callback_data="depth_medium")],
-                    [InlineKeyboardButton("📝 Short (bullet points)", callback_data="depth_short")],
-                    [InlineKeyboardButton("🔙 Back to AI Features", callback_data="ai_features")]
-                ])
-                
-                await update.message.reply_text(
-                    f"✅ File processed successfully!\n\n"
-                    f"📄 **File:** {file_name}\n\n"
-                    f"**Preview:**\n{preview_text}\n\n"
-                    f"Choose the depth of notes you want:",
-                    reply_markup=depth_menu
-                )
-            
-        except Exception as e:
-            logger.error(f"Error processing file: {e}")
-            await update.message.reply_text(
-                "❌ An error occurred while processing your file. Please try again or use a different file."
-            )
-
-async def generate_questions(user_id, context, chat_id):
-    """Generate questions using Hugging Face API"""
-    session = user_sessions[user_id]
-    
-    # Prepare the content
-    content = session["extracted_text"]
-    if session.get("selected_chapter") and not session.get("use_full_document"):
-        # Try to find the specified chapter in the content
-        chapter_name = session["selected_chapter"].lower()
-        content_lines = content.split('\n')
-        chapter_start = -1
-        chapter_end = len(content_lines)
-        
-        for i, line in enumerate(content_lines):
-            if chapter_name in line.lower():
-                chapter_start = i
-                break
-        
-        if chapter_start != -1:
-            # Find next chapter or end
-            for i in range(chapter_start + 1, len(content_lines)):
-                line = content_lines[i].lower()
-                if ('chapter' in line or 'unit' in line) and line != content_lines[chapter_start].lower():
-                    chapter_end = i
-                    break
-            
-            content = '\n'.join(content_lines[chapter_start:chapter_end])
-    
-    # Limit content length for API
-    if len(content) > 2000:
-        content = content[:2000] + "..."
-    
-    question_types = session["selected_question_types"]
-    difficulty = session["selected_difficulty"]
-    count = int(session["selected_count"])
-    
-    # Create prompts for different question types
-    questions_and_answers = []
-    
-    for q_type in question_types:
-        questions_per_type = max(1, count // len(question_types))
-        
-        if q_type == "True or False":
-            prompt = f"Based on this text, create {questions_per_type} true or false questions with {difficulty.lower()} difficulty level. For each question, provide the correct answer (True/False) and a brief explanation.\n\nText: {content}\n\nQuestions:"
-        elif q_type == "Multiple Choice":
-            prompt = f"Based on this text, create {questions_per_type} multiple choice questions with {difficulty.lower()} difficulty level. For each question, provide 4 options (A, B, C, D) and indicate the correct answer.\n\nText: {content}\n\nQuestions:"
-        elif q_type == "Writing (short answer)":
-            prompt = f"Based on this text, create {questions_per_type} short answer questions with {difficulty.lower()} difficulty level. Provide expected key points for each answer.\n\nText: {content}\n\nQuestions:"
-        elif q_type == "Workout (calculation)":
-            prompt = f"Based on this text, create {questions_per_type} calculation/problem-solving questions with {difficulty.lower()} difficulty level. Show the complete solution for each.\n\nText: {content}\n\nQuestions:"
-        elif q_type == "Matching":
-            prompt = f"Based on this text, create {questions_per_type} matching questions with {difficulty.lower()} difficulty level. Provide two columns to match and the correct answers.\n\nText: {content}\n\nQuestions:"
-        elif q_type == "Fill in the Blank":
-            prompt = f"Based on this text, create {questions_per_type} fill-in-the-blank questions with {difficulty.lower()} difficulty level. Provide the correct answers.\n\nText: {content}\n\nQuestions:"
-        
-        try:
-            generated_text = await call_huggingface_api(prompt, max_length=800)
-            questions_and_answers.append(f"\n\n=== {q_type.upper()} QUESTIONS ===\n\n{generated_text}")
-        except Exception as e:
-            logger.error(f"Error generating {q_type} questions: {e}")
-            questions_and_answers.append(f"\n\n=== {q_type.upper()} QUESTIONS ===\n\nError generating questions of this type.")
-    
-    # Combine all questions
-    final_content = f"QUESTIONS AND ANSWERS\n"
-    final_content += f"Generated from: {session['file_name']}\n"
-    final_content += f"Difficulty: {difficulty}\n"
-    final_content += f"Total Questions: {count}\n"
-    final_content += f"Question Types: {', '.join(question_types)}\n"
-    final_content += "\n" + "="*50 + "\n"
-    final_content += "".join(questions_and_answers)
-    
-    # Create PDF
-    pdf_buffer = create_pdf_with_watermark(final_content)
-    
-    if pdf_buffer:
-        # Send the PDF
-        pdf_buffer.seek(0)
-        await context.bot.send_document(
-            chat_id=chat_id,
-            document=pdf_buffer,
-            filename=f"Questions_{session['file_name']}.pdf",
-            caption=f"📄 Generated {count} questions from your document!\n\nQuestion types: {', '.join(question_types)}\nDifficulty: {difficulty}"
-        )
-        
-        # Log the generation
-        log_user_activity(user_id, "question_generation", {
-            "file_name": session["file_name"],
-            "question_types": question_types,
-            "difficulty": difficulty,
-            "count": count,
-            "use_full_document": session.get("use_full_document", True)
-        })
-    else:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text="❌ Error creating PDF. Here's your content:\n\n" + final_content[:4000]
-        )
-    
-    # Clear session
-    if user_id in user_sessions:
-        del user_sessions[user_id]
-    
-    # Show menu to return
-    main_menu = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📚 Course Materials", callback_data="course_materials")],
-        [InlineKeyboardButton("🧠 AI Features", callback_data="ai_features")]
-    ])
-    
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text="✅ Questions generated successfully!\n\nWhat would you like to do next?",
-        reply_markup=main_menu
-    )
-
-async def generate_note(user_id, context, chat_id):
-    """Generate notes using Hugging Face API"""
-    session = user_sessions[user_id]
-    
-    # Prepare the content  
-    content = session["extracted_text"]
-    if session.get("selected_chapter") and not session.get("use_full_document"):
-        # Try to find the specified chapter in the content
-        chapter_name = session["selected_chapter"].lower()
-        content_lines = content.split('\n')
-        chapter_start = -1
-        chapter_end = len(content_lines)
-        
-        for i, line in enumerate(content_lines):
-            if chapter_name in line.lower():
-                chapter_start = i
-                break
-        
-        if chapter_start != -1:
-            # Find next chapter or end
-            for i in range(chapter_start + 1, len(content_lines)):
-                line = content_lines[i].lower()
-                if ('chapter' in line or 'unit' in line) and line != content_lines[chapter_start].lower():
-                    chapter_end = i
-                    break
-            
-            content = '\n'.join(content_lines[chapter_start:chapter_end])
-    
-    # Limit content length for API
-    if len(content) > 2000:
-        content = content[:2000] + "..."
-    
-    depth = session["selected_depth"]
-    
-    # Create prompts based on depth
-    if depth == "deep":
-        prompt = f"Create detailed comprehensive notes from this text. Include main concepts, important details, examples, and explanations. Organize with clear headings and subheadings.\n\nText: {content}\n\nDetailed Notes:"
-        max_length = 1200
-    elif depth == "medium":
-        prompt = f"Create a summary of this text. Include key points, main concepts, and important information in paragraph form.\n\nText: {content}\n\nSummary:"
-        max_length = 800
-    else:  # short
-        prompt = f"Create bullet point notes from this text. List the most important points in a clear, concise format.\n\nText: {content}\n\nBullet Points:"
-        max_length = 600
-    
     try:
-        generated_text = await call_huggingface_api(prompt, max_length=max_length)
+        text = extract_text_from_file(file_bytes, doc.file_name)
         
-        # Format the final content
-        depth_names = {"deep": "Detailed", "medium": "Summary", "short": "Bullet Points"}
-        final_content = f"STUDY NOTES - {depth_names[depth].upper()}\n"
-        final_content += f"Generated from: {session['file_name']}\n"
-        final_content += f"Note Type: {depth_names[depth]}\n"
-        final_content += "\n" + "="*50 + "\n\n"
-        final_content += generated_text
-        
-        # Create PDF
-        pdf_buffer = create_pdf_with_watermark(final_content)
-        
-        if pdf_buffer:
-            # Send the PDF
-            pdf_buffer.seek(0)
-            await context.bot.send_document(
-                chat_id=chat_id,
-                document=pdf_buffer,
-                filename=f"Notes_{depth}_{session['file_name']}.pdf",
-                caption=f"📝 Your {depth_names[depth].lower()} notes are ready!\n\nGenerated from: {session['file_name']}"
-            )
-            
-            # Log the generation
-            log_user_activity(user_id, "note_generation", {
-                "file_name": session["file_name"],
-                "depth": depth,
-                "use_full_document": session.get("use_full_document", True)
-            })
+        if context.user_data['action'] == 'questions':
+            prompt = "Generate 10 quiz questions with answers about this content:"
         else:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text="❌ Error creating PDF. Here's your content:\n\n" + final_content[:4000]
-            )
-    
-    except Exception as e:
-        logger.error(f"Error generating note: {e}")
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text="❌ An error occurred while generating the note. Please try again."
-        )
-    
-    # Clear session
-    if user_id in user_sessions:
-        del user_sessions[user_id]
-    
-    # Show menu to return
-    main_menu = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📚 Course Materials", callback_data="course_materials")],
-        [InlineKeyboardButton("🧠 AI Features", callback_data="ai_features")]
-    ])
-    
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text="✅ Note generated successfully!\n\nWhat would you like to do next?",
-        reply_markup=main_menu
-    )
-
-async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle text messages for chapter selection"""
-    user_id = update.effective_user.id
-    
-    if user_id in user_sessions:
-        session = user_sessions[user_id]
+            prompt = "Create a concise summary of this content:"
         
-        if session.get("step") == "awaiting_chapter_input":
-            chapter_name = update.message.text.strip()
-            session["selected_chapter"] = chapter_name
-            session["use_full_document"] = False
-            
-            if session["feature"] == "question_generation":
-                # Go to question type selection
-                session["step"] = "question_type_selection"
-                
-                type_buttons = []
-                for i in range(0, len(QUESTION_TYPES), 2):
-                    row = []
-                    row.append(InlineKeyboardButton(QUESTION_TYPES[i], callback_data=f"qtype_{i}"))
-                    if i + 1 < len(QUESTION_TYPES):
-                        row.append(InlineKeyboardButton(QUESTION_TYPES[i + 1], callback_data=f"qtype_{i + 1}"))
-                    type_buttons.append(row)
-                
-                type_buttons.append([InlineKeyboardButton("✅ Continue", callback_data="continue_to_difficulty")])
-                type_buttons.append([InlineKeyboardButton("🔙 Back", callback_data="back_to_chapter_selection")])
-                
-                await update.message.reply_text(
-                    f"📖 Selected chapter: {chapter_name}\n\n"
-                    "📝 Question Type Selection\n\n"
-                    "Select the types of questions you want (you can select multiple):\n\n"
-                    "Selected types: None yet",
-                    reply_markup=InlineKeyboardMarkup(type_buttons)
-                )
-                session["selected_question_types"] = []
-                
-            elif session["feature"] == "short_note":
-                # Go to note depth selection
-                session["step"] = "depth_selection"
-                depth_menu = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔍 Deep (detailed)", callback_data="depth_deep")],
-                    [InlineKeyboardButton("📄 Medium (summary)", callback_data="depth_medium")],
-                    [InlineKeyboardButton("📝 Short (bullet points)", callback_data="depth_short")],
-                    [InlineKeyboardButton("🔙 Back", callback_data="back_to_chapter_selection")]
-                ])
-                
-                await update.message.reply_text(
-                    f"📖 Selected chapter: {chapter_name}\n\n"
-                    "📝 Note Depth Selection\n\n"
-                    "Choose how detailed you want your notes to be:",
-                    reply_markup=depth_menu
-                )
+        response = generate_with_ai(text, prompt)
+        
+        # Split long messages
+        for i in range(0, len(response), 4000):
+            await update.message.reply_text(response[i:i+4000])
+        
+    except Exception as e:
+        logger.error(f"Error processing file: {e}")
+        await update.message.reply_text("❌ Sorry, I couldn't process that file. Please try another format.")
+    
+    finally:
+        context.user_data.clear()
+        await start(update, context)
+
+def extract_text_from_file(file_bytes, filename):
+    if filename.endswith('.pdf'):
+        with pdfplumber.open(file_bytes) as pdf:
+            return "\n".join([page.extract_text() for page in pdf.pages])
+    elif filename.endswith('.docx'):
+        doc = Document(file_bytes)
+        return "\n".join([para.text for para in doc.paragraphs])
+    elif filename.endswith('.pptx'):
+        prs = python_pptx.Presentation(file_bytes)
+        text = []
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if hasattr(shape, "text"):
+                    text.append(shape.text)
+        return "\n".join(text)
+    elif filename.endswith('.txt'):
+        return file_bytes.read().decode('utf-8')
+    else:
+        raise ValueError("Unsupported file format")
+
+def generate_with_ai(text, prompt_prefix):
+    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+    payload = {
+        "inputs": f"{prompt_prefix}\n\n{text}",
+        "parameters": {"max_length": 1000}
+    }
+    response = requests.post(TEXT_API, headers=headers, json=payload)
+    return response.json()[0]['generated_text']
+
+async def feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['awaiting_feedback'] = True
+    await update.message.reply_text("💬 Please type your feedback message:")
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if context.user_data.get('awaiting_feedback'):
+        feedback_text = update.message.text
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"📩 Feedback from @{update.effective_user.username}:\n\n{feedback_text}"
+        )
+        await update.message.reply_text("✅ Thank you for your feedback!")
+        context.user_data.clear()
+    else:
+        await start(update, context)
 
 def main():
     try:
         app = ApplicationBuilder().token(BOT_TOKEN).build()
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CallbackQueryHandler(button))
-        app.add_handler(MessageHandler(filters.Document.ALL, doc_handler))
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
-        logger.info("Bot is running with AI features...")
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+        
+        threading.Thread(target=run_web, daemon=True).start()
         app.run_polling()
     except Conflict as e:
-        logger.error("Another instance of the bot is already running. Please stop it before starting a new one.")
+        logger.error("Another instance is already running.")
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
+        logger.error(f"Error: {e}")
 
 if __name__ == "__main__":
-    threading.Thread(target=run_web, daemon=True).start()
     main()
